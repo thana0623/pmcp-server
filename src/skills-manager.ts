@@ -8,7 +8,13 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPromptsDir } from './config.js';
+import {
+  getPromptsDir,
+  getCoreSkillsDir,
+  getCustomSkillsDir,
+  getGeneratedSkillsDir,
+  getGlobalSkillsDir,
+} from './config.js';
 
 export interface SkillMeta {
   name: string;
@@ -35,35 +41,102 @@ function getSkillPath(name: string): string {
   return path.join(getSkillsDir(), `${name}.md`);
 }
 
+/** 获取所有 skill 目录（按优先级从高到低排序） */
+function getSkillDirectories(): string[] {
+  return [
+    getGeneratedSkillsDir(),   // 最高优先级：项目生成的 skill
+    getSkillsDir(),            // 项目 skill
+    getCustomSkillsDir(),      // 个人自定义 skill
+    getCoreSkillsDir(),        // 核心 skill（只读）
+  ];
+}
+
 // ─── Skill CRUD ──────────────────────────────────────────────────────
 
 /**
  * 列出所有 skill（仅元数据，不含全文）
+ * 从多个目录加载，按优先级去重
  */
 export function listSkills(): Skill[] {
-  const skillsDir = getSkillsDir();
-  if (!fs.existsSync(skillsDir)) return [];
+  const allSkills = new Map<string, Skill>();
 
-  const files = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md'));
-  return files.map(f => {
-    const filePath = path.join(skillsDir, f);
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    return parseSkillFile(raw, filePath);
-  }).filter(Boolean) as Skill[];
+  for (const dir of getSkillDirectories()) {
+    if (!fs.existsSync(dir)) continue;
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
+    for (const f of files) {
+      const name = path.basename(f, '.md');
+      if (!allSkills.has(name)) {
+        const filePath = path.join(dir, f);
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const skill = parseSkillFile(raw, filePath);
+        if (skill) allSkills.set(name, skill);
+      }
+    }
+  }
+
+  return Array.from(allSkills.values());
 }
 
 /**
  * 读取单个 skill 的完整内容
+ * 从多个目录查找，组合学习记录
  */
 export function selectSkill(name: string): Skill | null {
-  const filePath = getSkillPath(name);
-  if (!fs.existsSync(filePath)) return null;
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  return parseSkillFile(raw, filePath);
+  const dirs = getSkillDirectories();
+  const skills: Skill[] = [];
+
+  for (const dir of dirs) {
+    const filePath = path.join(dir, `${name}.md`);
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const skill = parseSkillFile(raw, filePath);
+      if (skill) skills.push(skill);
+    }
+  }
+
+  if (skills.length === 0) return null;
+
+  return composeSkill(skills);
+}
+
+/**
+ * 组合多个同名 skill
+ * 使用最高优先级的身份和规范，合并所有来源的学习记录
+ */
+function composeSkill(skills: Skill[]): Skill {
+  if (skills.length === 1) return skills[0];
+
+  const primary = skills[0]; // 最高优先级
+
+  // 收集所有学习记录
+  const allLearnings: string[] = [];
+  for (const skill of skills) {
+    const learningMatch = skill.content.match(/## 学习记录\n([\s\S]*?)$/);
+    if (learningMatch) {
+      allLearnings.push(learningMatch[1].trim());
+    }
+  }
+
+  // 组合内容：使用主 skill 的身份和规范 + 合并的学习记录
+  const identityMatch = primary.content.match(/(## 身份\n[\s\S]*?)(?=## 开发规范)/);
+  const guidelineMatch = primary.content.match(/(## 开发规范\n[\s\S]*?)(?=## 学习记录)/);
+
+  const composed = [
+    identityMatch ? identityMatch[1].trim() : '',
+    guidelineMatch ? guidelineMatch[1].trim() : '',
+    '## 学习记录',
+    ...allLearnings,
+  ].join('\n\n');
+
+  return {
+    ...primary,
+    content: composed,
+  };
 }
 
 /**
  * 更新 skill：追加学习记录或修改规范
+ * 写入项目生成目录，不修改全局 skill
  */
 export function updateSkill(
   name: string,
@@ -74,12 +147,49 @@ export function updateSkill(
   }
 ): { success: boolean; error?: string } {
   try {
-    const filePath = getSkillPath(name);
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: `Skill 不存在: ${name}` };
+    // 检查是否是核心 skill
+    const corePath = path.join(getCoreSkillsDir(), `${name}.md`);
+    if (fs.existsSync(corePath)) {
+      return {
+        success: false,
+        error: `Skill "${name}" 是核心 skill，不能直接修改。请创建自定义版本。`,
+      };
     }
 
-    let raw = fs.readFileSync(filePath, 'utf-8');
+    // 确定写入路径：优先写入生成目录
+    const generatedDir = getGeneratedSkillsDir();
+    if (!fs.existsSync(generatedDir)) {
+      fs.mkdirSync(generatedDir, { recursive: true });
+    }
+
+    // 查找现有 skill 文件
+    let filePath = '';
+    let raw = '';
+
+    // 先检查生成目录
+    const generatedPath = path.join(generatedDir, `${name}.md`);
+    if (fs.existsSync(generatedPath)) {
+      filePath = generatedPath;
+      raw = fs.readFileSync(filePath, 'utf-8');
+    } else {
+      // 检查项目 skill 目录
+      const projectPath = getSkillPath(name);
+      if (fs.existsSync(projectPath)) {
+        // 复制到生成目录后再修改
+        raw = fs.readFileSync(projectPath, 'utf-8');
+        filePath = generatedPath;
+      } else {
+        // 检查自定义 skill 目录
+        const customPath = path.join(getCustomSkillsDir(), `${name}.md`);
+        if (fs.existsSync(customPath)) {
+          raw = fs.readFileSync(customPath, 'utf-8');
+          filePath = generatedPath;
+        } else {
+          return { success: false, error: `Skill 不存在: ${name}` };
+        }
+      }
+    }
+
     const today = new Date().toISOString().slice(0, 10);
 
     // 更新 frontmatter 中的 updated 和 version
@@ -203,6 +313,69 @@ export function formatSkillList(): string {
   lines.push('> 请询问用户想以哪个角色开始开发，然后调用 `select_skill` 加载该 skill。');
 
   return lines.join('\n');
+}
+
+/**
+ * 初始化全局 skill 仓库
+ * 创建目录结构并复制默认 core skill
+ */
+export function initGlobalSkills(options?: {
+  sourceDir?: string;
+}): { success: boolean; created: string[]; errors: string[] } {
+  const created: string[] = [];
+  const errors: string[] = [];
+
+  try {
+    const globalDir = getGlobalSkillsDir();
+    const coreDir = getCoreSkillsDir();
+    const customDir = getCustomSkillsDir();
+
+    // 创建目录结构
+    for (const dir of [globalDir, coreDir, customDir]) {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        created.push(dir);
+      }
+    }
+
+    // 复制默认 core skill（从源目录或包内）
+    // 使用 import.meta.url 获取当前文件路径，然后向上找到包根目录
+    const currentDir = path.dirname(new URL(import.meta.url).pathname);
+    // Windows 下 new URL().pathname 会返回 /C:/... 格式，需要处理
+    const normalizedCurrentDir = currentDir.startsWith('/') ? currentDir.slice(1) : currentDir;
+    const packageRoot = path.resolve(normalizedCurrentDir, '..');
+
+    const sourceDir = options?.sourceDir || path.join(
+      packageRoot,
+      '.github',
+      'prompts',
+      'skills'
+    );
+
+    if (fs.existsSync(sourceDir)) {
+      const skillFiles = fs.readdirSync(sourceDir).filter(f => f.endsWith('.md'));
+      for (const f of skillFiles) {
+        const destFile = path.join(coreDir, f);
+        if (!fs.existsSync(destFile)) {
+          fs.copyFileSync(path.join(sourceDir, f), destFile);
+          created.push(destFile);
+        }
+      }
+    }
+
+    return { success: true, created, errors };
+  } catch (e: any) {
+    errors.push(e.message);
+    return { success: false, created, errors };
+  }
+}
+
+/**
+ * 检查全局 skill 仓库是否已初始化
+ */
+export function isGlobalSkillsInitialized(): boolean {
+  const coreDir = getCoreSkillsDir();
+  return fs.existsSync(coreDir);
 }
 
 // ─── 内部工具 ────────────────────────────────────────────────────────

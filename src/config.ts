@@ -54,12 +54,24 @@ export const config = {
 
   /** 是否在 log_dialog 后自动 git commit（默认开启） */
   autoCommit: process.env.AUTO_COMMIT !== 'false',
+
+  /** 全局 skill 仓库路径 */
+  globalSkillsDir: process.env.PMCP_SKILLS_DIR || path.join(
+    process.env.HOME || process.env.USERPROFILE || '',
+    '.pmcp',
+    'skills'
+  ),
 };
 
 // ─── 路径辅助函数 ─────────────────────────────────────────────────────
 
 export function getProjectRoot(): string {
   return config.projectRoot;
+}
+
+/** 动态切换项目根目录（用于 CLI setup 命令在运行时切换目标项目） */
+export function setProjectRoot(root: string): void {
+  config.projectRoot = root;
 }
 
 export function getPromptsDir(): string {
@@ -69,4 +81,25 @@ export function getPromptsDir(): string {
 export function getModulesDir(projectRoot?: string): string {
   const root = projectRoot || config.projectRoot;
   return path.join(root, config.promptsSubDir, 'modules');
+}
+
+/** 全局 skill 仓库根目录 */
+export function getGlobalSkillsDir(): string {
+  return config.globalSkillsDir;
+}
+
+/** 核心 skill 目录（只读） */
+export function getCoreSkillsDir(): string {
+  return path.join(config.globalSkillsDir, 'core');
+}
+
+/** 自定义 skill 目录（用户创建） */
+export function getCustomSkillsDir(): string {
+  return path.join(config.globalSkillsDir, 'custom');
+}
+
+/** 项目生成的 skill 目录（本地，不入 git） */
+export function getGeneratedSkillsDir(projectRoot?: string): string {
+  const root = projectRoot || config.projectRoot;
+  return path.join(root, '.prompts-mcp', 'skills');
 }
