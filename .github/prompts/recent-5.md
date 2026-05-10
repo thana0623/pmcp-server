@@ -1,21 +1,7 @@
 # Recent Activity (auto-managed by hooks)
 
-> Auto-generated from PostToolUse hooks. Do not edit manually.
+> Auto-generated from tool-use hooks. Do not edit manually.
 > Showing last 5 state-changing events.
-
-## Event-163
-
-- **Time**: 2026-05-09 04:57:05
-- **Tool**: `Edit`
-- **Target**: `C:\admin\Code\Project\prompts-mcp-server\package.json`
-- **Summary**: Modified C:\admin\Code\Project\prompts-mcp-server\package.json
-
-## Event-164
-
-- **Time**: 2026-05-09 04:57:53
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && npm run build 2>&1 && npm link 2>&1`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && npm run build 2>&1 && npm link 2>&1
 
 ## Event-165
 
@@ -37,3 +23,16 @@
 - **Tool**: `Bash`
 - **Target**: `rm -rf /tmp/test-pmcp`
 - **Summary**: Ran: rm -rf /tmp/test-pmcp
+## Event-168
+
+- **Time**: 2026-05-09 05:00:00
+- **Tool**: `Bash`
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && npm run build 2>&1 | tail -5`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && npm run build 2>&1 | tail -5
+
+## Event-169
+
+- **Time**: 2026-05-09 05:00:04
+- **Tool**: `Bash`
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && pmcp setup 2>&1`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && pmcp setup 2>&1
