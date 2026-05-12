@@ -1,5 +1,8 @@
 # pmcp-server
 
+[![npm version](https://img.shields.io/npm/v/pmcp-server.svg)](https://www.npmjs.com/package/pmcp-server)
+[![license](https://img.shields.io/npm/l/pmcp-server.svg)](https://github.com/thana0623/prompts-mcp-server/blob/master/LICENSE)
+
 AI 无关的上下文生命周期基础设施：Hook 驱动日志 + MCP 上下文管理 + 角色技能系统。
 
 核心设计：**脚本管状态，AI 管语义**。不依赖 AI 主动调用日志工具。
@@ -103,7 +106,7 @@ your-project/
 ```json
 {
   "mcpServers": {
-    "prompts-mcp": {
+    "pmcp-server": {
       "command": "node",
       "args": ["/path/to/pmcp-server/build/index.js"],
       "env": {
