@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * prompts-mcp-server - 通用 MCP Server
+ * pmcp-server - 通用 MCP Server
  *
  * 提供以下工具：
  *   - auto_start         - 会话自动启动，加载全部上下文 + 规则 + Skills

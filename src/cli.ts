@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * prompts-mcp-server CLI
+ * pmcp-server CLI
  * 
  * CLI 入口，提供与 MCP Server 相同的功能。
  * 

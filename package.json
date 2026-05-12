@@ -1,5 +1,5 @@
 {
-  "name": "prompts-mcp-server",
+  "name": "pmcp-server",
   "version": "1.0.0",
   "description": "通用 MCP Server — 自动生成项目 prompts 体系、传递链日志、模块记录、需求澄清与计划生成。可接入任意项目。",
   "type": "module",
@@ -14,7 +14,17 @@
     "adapters/",
     ".github/prompts/skills/"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thana0623/prompts-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thana0623/prompts-mcp-server/issues"
+  },
+  "homepage": "https://github.com/thana0623/prompts-mcp-server#readme",
   "scripts": {
+    "postinstall": "node -e \"console.log('\\x1b[32m%s\\x1b[0m', '✅ pmcp-server installed successfully! Run \\x1b[1mpmcp setup\\x1b[22m to initialize your project.')\"",
+    "prepublishOnly": "npm run build && rm -rf build/__tests__",
     "build": "tsc -p tsconfig.json",
     "start": "node build/index.js",
     "cli": "node build/cli.js",
@@ -29,8 +39,12 @@
   "keywords": [
     "mcp",
     "prompts",
+    "ai-context",
+    "project-init",
+    "claude-code",
     "cline",
-    "project-init"
+    "cursor",
+    "context-management"
   ],
   "license": "MIT",
   "dependencies": {
