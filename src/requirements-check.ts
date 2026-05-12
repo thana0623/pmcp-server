@@ -19,6 +19,7 @@ export interface ClarityCheckItem {
   question: string;
   status: '❌' | '⚠️' | '✅';
   detail: string;
+  reasoning: string;
 }
 
 export interface ClarityCheckResult {
@@ -40,6 +41,7 @@ export function checkRequirements(taskDescription: string): ClarityCheckResult {
       question: '能用一句话说清"这个需求要解决什么问题"？',
       status: '❌',
       detail: '',
+      reasoning: '',
     },
     {
       id: 'io',
@@ -47,6 +49,7 @@ export function checkRequirements(taskDescription: string): ClarityCheckResult {
       question: '"从哪来"和"到哪去"都要清楚？',
       status: '❌',
       detail: '',
+      reasoning: '',
     },
     {
       id: 'constraints',
@@ -54,6 +57,7 @@ export function checkRequirements(taskDescription: string): ClarityCheckResult {
       question: '有没有"不能改的地方"？',
       status: '❌',
       detail: '',
+      reasoning: '',
     },
     {
       id: 'acceptance',
@@ -61,6 +65,7 @@ export function checkRequirements(taskDescription: string): ClarityCheckResult {
       question: '"什么时候算完成"要有具体标准？',
       status: '❌',
       detail: '',
+      reasoning: '',
     },
     {
       id: 'scope',
@@ -68,6 +73,7 @@ export function checkRequirements(taskDescription: string): ClarityCheckResult {
       question: '要改哪些文件/模块、要更新哪些 docs？',
       status: '❌',
       detail: '',
+      reasoning: '',
     },
   ];
 

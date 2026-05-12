@@ -19,15 +19,23 @@
     "start": "node build/index.js",
     "cli": "node build/cli.js",
     "dev": "tsx src/index.ts",
-    "dev:cli": "tsx src/cli.ts"
+    "dev:cli": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "keywords": ["mcp", "prompts", "cline", "project-init"],
+  "keywords": [
+    "mcp",
+    "prompts",
+    "cline",
+    "project-init"
+  ],
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.6"
   }
 }
