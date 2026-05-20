@@ -8,3 +8,4 @@ dist/
 logs/
 .claude/settings.local.json
 .prompts-mcp/
+.npmrc
