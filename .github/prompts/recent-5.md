@@ -3,36 +3,38 @@
 > Auto-generated from tool-use hooks. Do not edit manually.
 > Showing last 5 state-changing events.
 
-## Event-165
+## Event-199
 
-- **Time**: 2026-05-09 04:58:23
+- **Time**: 2026-05-22 11:46:06
 - **Tool**: `Bash`
-- **Target**: `mkdir -p /tmp/test-pmcp && cd /tmp/test-pmcp && echo '{"name":"demo"}' > package.json && pmcp setup 2>&1 | head -20`
-- **Summary**: Ran: mkdir -p /tmp/test-pmcp && cd /tmp/test-pmcp && echo '{"name":"demo"}' > package.json && pmcp setup 
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && mv .github/prompts/task-state.json.bak .github/prompts/task-state.json`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && mv .github/prompts/task-state.json.bak .github/prom
 
-## Event-166
+## Event-200
 
-- **Time**: 2026-05-09 04:59:09
+- **Time**: 2026-05-22 11:48:25
+- **Tool**: `Write`
+- **Target**: `C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md`
+- **Summary**: Created/rewrote C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md
+
+## Event-201
+
+- **Time**: 2026-05-22 11:48:57
+- **Tool**: `Write`
+- **Target**: `C:\admin\Code\Project\prompts-mcp-server\.github\prompts\task-state.json`
+- **Summary**: Created/rewrote C:\admin\Code\Project\prompts-mcp-server\.github\prompts\task-state.json
+
+## Event-202
+
+- **Time**: 2026-05-22 11:49:17
 - **Tool**: `Bash`
-- **Target**: `rm -rf /tmp/test-pmcp && mkdir -p /tmp/test-pmcp && echo '{"name":"demo"}' > /tmp/test-pmcp/package.json && pmcp setup /tmp/test-pmcp 2>&1 | tail -10`
-- **Summary**: Ran: rm -rf /tmp/test-pmcp && mkdir -p /tmp/test-pmcp && echo '{"name":"demo"}' > /tmp/test-pmcp/package.
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git add -f .github/prompts/focus-spec.md .github/prompts/task-state.json && git commit -m "$(cat <<'EOF'
+chore: prepare for PreToolUse full-chain verif`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git add -f .github/prompts/focus-spec.md .github/pr
 
-## Event-167
+## Event-203
 
-- **Time**: 2026-05-09 04:59:15
+- **Time**: 2026-05-22 11:49:30
 - **Tool**: `Bash`
-- **Target**: `rm -rf /tmp/test-pmcp`
-- **Summary**: Ran: rm -rf /tmp/test-pmcp
-## Event-168
-
-- **Time**: 2026-05-09 05:00:00
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && npm run build 2>&1 | tail -5`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && npm run build 2>&1 | tail -5
-
-## Event-169
-
-- **Time**: 2026-05-09 05:00:04
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && pmcp setup 2>&1`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && pmcp setup 2>&1
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== Current Stage ===" && node -e "console.log(require('./.github/prompts/task-state.json').stage)" && echo "" && echo "=== Focus Spec Status ===`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== Current Stage ===" && node -e "console.lo
