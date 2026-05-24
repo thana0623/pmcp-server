@@ -238,7 +238,9 @@ export function formatBootstrap(result: BootstrapResult): string {
   if (result.skills) {
     lines.push('## ⚡ 选择你的角色');
     lines.push('');
-    lines.push('在通过 Hard Gate 预检后，输入 `/` 查看可用角色命令：');
+    lines.push('在通过 Hard Gate 预检后，**必须**先询问用户想以哪个角色开发。');
+    lines.push('');
+    lines.push('**角色加载协议：用户说出角色名时，Read 对应文件：**');
     lines.push('');
     const skills = result.skills.split('\n').filter(l => l.startsWith('|') && !l.startsWith('|---') && !l.startsWith('| #'));
     for (const s of skills) {
@@ -247,11 +249,11 @@ export function formatBootstrap(result: BootstrapResult): string {
       const descMatch = s.match(/\| ([^|]+?) \| v/);
       const desc = descMatch ? descMatch[1].replace(/\*\*/g, '').trim() : '';
       if (name) {
-        lines.push(`- \`/${name}\` — ${desc}`);
+        lines.push(`- **${name}** — ${desc}`);
       }
     }
     lines.push('');
-    lines.push('> 输入 `/` 后从自动补全菜单中选择，或直接输入完整命令如 `/analyst`。');
+    lines.push('> 用户只需说角色名（如"用 analyst 角色"），直接 Read `.github/prompts/skills/<name>.md` 并按其身份行事。');
     lines.push('');
     lines.push('---');
     lines.push('');

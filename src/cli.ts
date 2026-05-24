@@ -49,7 +49,6 @@ import {
   isGlobalSkillsInitialized,
 } from './skills-manager.js';
 import { logDialog } from './dialog-logger.js';
-import { parseFrontmatter } from './frontmatter.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -74,11 +73,10 @@ const PMCP_BLOCK = [
   '`pmcp` is a globally installed CLI tool. When the user types `pmcp <command>` in any project, execute it immediately as a Bash command without exploring the project first. Do not read files, search the codebase, or try to understand what pmcp is — just run it.',
   '',
   'Key commands:',
-  '- `pmcp start [path]` — bootstrap a project (init + load context + install skills)',
+  '- `pmcp start [path]` — bootstrap a project (init + load context + skill selection)',
   '- `pmcp setup [path]` — initialize prompts-mcp in a project',
   '- `pmcp bootstrap` — reload context in an already-initialized project',
   '- `pmcp skill list` — list available skills',
-  '- `/analyst` `/architect` `/backend` etc. — activate a role (available after pmcp start)',
   '',
   'Example: when user says "pmcp start /path/to/project", run:',
   '```bash',
@@ -156,49 +154,6 @@ function printSeparator(title: string): void {
   console.log(`\n${line}`);
   console.log(`  ${title}`);
   console.log(`${line}\n`);
-}
-
-// ─── Claude Code 原生 Skill 安装 ────────────────────────────────────
-
-function installClaudeCodeSkills(sourceDir: string, projectRoot: string): { installed: string[]; errors: string[] } {
-  const installed: string[] = [];
-  const errors: string[] = [];
-
-  if (!fs.existsSync(sourceDir)) {
-    return { installed, errors: [`Source dir not found: ${sourceDir}`] };
-  }
-
-  const skillFiles = fs.readdirSync(sourceDir).filter(f => f.endsWith('.md'));
-  const skillsDir = path.join(projectRoot, '.claude', 'skills');
-
-  for (const f of skillFiles) {
-    try {
-      const raw = fs.readFileSync(path.join(sourceDir, f), 'utf-8');
-      const { meta, body } = parseFrontmatter(raw);
-
-      const name = meta.name || path.basename(f, '.md');
-      const skillDir = path.join(skillsDir, name);
-      const skillMdPath = path.join(skillDir, 'SKILL.md');
-
-      fs.mkdirSync(skillDir, { recursive: true });
-
-      const ccFrontmatter = [
-        '---',
-        `name: ${name}`,
-        `description: ${meta.description || ''}`,
-        'user-invocable: true',
-        '---',
-        '',
-      ].join('\n');
-
-      fs.writeFileSync(skillMdPath, ccFrontmatter + body, 'utf-8');
-      installed.push(name);
-    } catch (e: any) {
-      errors.push(`${f}: ${e.message}`);
-    }
-  }
-
-  return { installed, errors };
 }
 
 async function main(): Promise<void> {
@@ -347,30 +302,22 @@ async function main(): Promise<void> {
           fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
         }
 
-        // 安装 Claude Code 原生 skill（/.claude/skills/<name>/SKILL.md）
-        const ccResult = installClaudeCodeSkills(skillsDest, projectRoot);
-        for (const name of ccResult.installed) {
-          console.log(`    + .claude/skills/${name}/`);
-        }
-        for (const err of ccResult.errors) {
-          console.log(`    ! ${err}`);
-        }
-
         console.log('\n✅ 初始化完成\n');
       } else {
         console.log('[1/4] 项目已初始化，跳过\n');
 
-        // 已有项目也安装/更新 Claude Code 原生 skill
-        const existingSkillsDir = path.join(projectRoot, '.github', 'prompts', 'skills');
-        if (fs.existsSync(existingSkillsDir)) {
-          const ccResult = installClaudeCodeSkills(existingSkillsDir, projectRoot);
-          if (ccResult.installed.length > 0) {
-            console.log('    = Claude Code skills 已更新:');
-            for (const name of ccResult.installed) {
-              console.log(`      .claude/skills/${name}/`);
-            }
-          }
+        // 已有项目：更新 hook 脚本到最新版本
+        const hooksSrc = path.join(PACKAGE_ROOT, 'hooks');
+        const adapterSrc = path.join(PACKAGE_ROOT, 'adapters', assistant);
+        const hooksDest = path.join(projectRoot, '.prompts-mcp', 'hooks');
+        const adapterDest = path.join(projectRoot, '.prompts-mcp', 'adapters', assistant);
+        if (fs.existsSync(hooksSrc)) {
+          fs.cpSync(hooksSrc, hooksDest, { recursive: true });
         }
+        if (fs.existsSync(adapterSrc)) {
+          fs.cpSync(adapterSrc, adapterDest, { recursive: true });
+        }
+        console.log('    = Hook 脚本已更新到最新版本');
       }
 
       // ── Step 2: 确保全局 skill 仓库存在 ──
@@ -395,17 +342,16 @@ async function main(): Promise<void> {
       // ── Step 4: Skill 选择提示 ──
       console.log('\n[4/4] Skill 选择\n');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('  输入 `/` 查看可用角色并选择：');
+      console.log('  请选择角色（说出角色名即可）：');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
-      console.log('  /analyst         需求分析师');
-      console.log('  /architect       系统架构师');
-      console.log('  /backend         后端开发');
-      console.log('  /frontend        前端开发');
-      console.log('  /review          代码审查');
-      console.log('  /database-handler 数据库处理');
+      console.log('  analyst          需求分析师');
+      console.log('  architect        系统架构师');
+      console.log('  backend          后端开发');
+      console.log('  frontend         前端开发');
+      console.log('  review           代码审查');
       console.log('');
-      console.log('  或在 Claude Code 中直接描述你的需求。');
+      console.log('  直接说出角色名，或描述你的需求。');
       console.log('');
 
       break;
@@ -572,15 +518,6 @@ async function main(): Promise<void> {
         console.log(`\n[5/5] 跳过（${assistant} 不需要 .claude/settings.json）`);
       }
 
-      // 安装 Claude Code 原生 skill（/.claude/skills/<name>/SKILL.md）
-      const ccResult = installClaudeCodeSkills(skillsDest, projectRoot);
-      for (const name of ccResult.installed) {
-        console.log(`    + .claude/skills/${name}/`);
-      }
-      for (const err of ccResult.errors) {
-        console.log(`    ! ${err}`);
-      }
-
       // ── Step 6: 写入 .pmcp-root 标记文件 ──
       console.log('\n[6/6] 写入 .pmcp-root 标记...\n');
       const pmcpRootMarker = path.join(projectRoot, '.pmcp-root');
@@ -604,7 +541,7 @@ async function main(): Promise<void> {
       console.log('═'.repeat(60));
       console.log('');
       console.log('下一步：');
-      console.log('  1. 输入 `/` 从自动补全菜单中选择角色（如 `/analyst`）');
+      console.log('  1. 说出角色名选择角色（如 "用 analyst 角色"）');
       console.log('  2. 或用 Claude Code 打开项目，SessionStart hook 会自动加载上下文');
       console.log('');
       break;

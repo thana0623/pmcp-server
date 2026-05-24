@@ -3,36 +3,37 @@
 > Auto-generated from tool-use hooks. Do not edit manually.
 > Showing last 5 state-changing events.
 
-## Event-303
+## Event-395
 
-- **Time**: 2026-05-23 12:04:31
+- **Time**: 2026-05-24 10:43:36
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git push origin HEAD:master`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git push origin HEAD:master
-## Event-304
+- **Target**: `cat "C:/admin/Code/Project/prompts-mcp-server/.github/prompts/focus-spec.md" | head -20`
+- **Summary**: Ran: cat "C:/admin/Code/Project/prompts-mcp-server/.github/prompts/focus-spec.md" | head -20
 
-- **Time**: 2026-05-23 13:43:16
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && ls -la src/cli.ts 2>/dev/null && head -5 src/cli.ts`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && ls -la src/cli.ts 2>/dev/null && head -5 src/cli.ts
+## Event-396
 
-## Event-305
+- **Time**: 2026-05-24 11:04:01
+- **Tool**: `Write`
+- **Target**: `C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md`
+- **Summary**: Created/rewrote C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md
 
-- **Time**: 2026-05-23 13:43:16
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && cat package.json | head -30`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && cat package.json | head -30
+## Event-397
 
-## Event-306
+- **Time**: 2026-05-24 11:04:09
+- **Tool**: `Edit`
+- **Target**: `C:\admin\Code\Project\prompts-mcp-server\adapters\claude-code\session-start.sh`
+- **Summary**: Modified C:\admin\Code\Project\prompts-mcp-server\adapters\claude-code\session-start.sh
 
-- **Time**: 2026-05-23 13:43:43
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && ls build/cli.js 2>/dev/null && echo "BUILD EXISTS" || echo "NEED BUILD"`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && ls build/cli.js 2>/dev/null && echo "BUILD EXISTS" 
+## Event-398
 
-## Event-307
+- **Time**: 2026-05-24 11:04:31
+- **Tool**: `Edit`
+- **Target**: `C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\adapters\claude-code\session-start.sh`
+- **Summary**: Modified C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\adapters\claude-code\session-start.sh
 
-- **Time**: 2026-05-23 13:45:11
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && node build/cli.js start`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && node build/cli.js start
+## Event-399
+
+- **Time**: 2026-05-24 11:04:59
+- **Tool**: `Edit`
+- **Target**: `C:\admin\Code\Project\prompts-mcp-server\src\cli.ts`
+- **Summary**: Modified C:\admin\Code\Project\prompts-mcp-server\src\cli.ts

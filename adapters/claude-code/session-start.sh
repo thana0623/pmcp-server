@@ -125,6 +125,14 @@ if [ ! -d "$GLOBAL_SKILLS_DIR/core" ]; then
   echo ""
 fi
 
+# Step 0: Process any unprocessed logs from previous sessions
+# This ensures recent-5.md and summary-10.md are up-to-date even if
+# the previous session's SessionEnd hook didn't run (crash, force quit, etc.)
+HOOKS_DIR="$PROJECT_DIR/.prompts-mcp/hooks"
+if [ -f "$HOOKS_DIR/process-logs.sh" ]; then
+  bash "$HOOKS_DIR/process-logs.sh" 2>/dev/null || true
+fi
+
 # Run bootstrap to load all context
 BOOTSTRAP_OUTPUT=$(cd "$PROJECT_DIR" && node "$MCP_CLI_PATH" bootstrap 2>&1)
 

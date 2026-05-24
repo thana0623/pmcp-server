@@ -1,16 +1,16 @@
 {
   "stage": "confirmed",
-  "taskId": "native-claude-code-skills",
+  "taskId": "simplify-architecture",
   "history": [
     {
       "stage": "spec-pending",
-      "entered": "2026-05-24T09:12:00.750Z",
-      "note": "用户/AI 声明新需求，重置状态机"
+      "entered": "2026-05-24T12:00:00Z",
+      "note": "架构精简"
     },
     {
       "stage": "confirmed",
-      "entered": "2026-05-24T09:12:00.750Z",
-      "note": "用户签字确认 focus-spec"
+      "entered": "2026-05-24T12:01:00Z",
+      "note": "用户签字确认"
     }
   ]
 }
