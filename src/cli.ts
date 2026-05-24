@@ -49,6 +49,7 @@ import {
   isGlobalSkillsInitialized,
 } from './skills-manager.js';
 import { logDialog } from './dialog-logger.js';
+import { parseFrontmatter } from './frontmatter.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,10 +74,11 @@ const PMCP_BLOCK = [
   '`pmcp` is a globally installed CLI tool. When the user types `pmcp <command>` in any project, execute it immediately as a Bash command without exploring the project first. Do not read files, search the codebase, or try to understand what pmcp is — just run it.',
   '',
   'Key commands:',
-  '- `pmcp start [path]` — bootstrap a project (init + load context + skill selection)',
+  '- `pmcp start [path]` — bootstrap a project (init + load context + install skills)',
   '- `pmcp setup [path]` — initialize prompts-mcp in a project',
   '- `pmcp bootstrap` — reload context in an already-initialized project',
   '- `pmcp skill list` — list available skills',
+  '- `/analyst` `/architect` `/backend` etc. — activate a role (available after pmcp start)',
   '',
   'Example: when user says "pmcp start /path/to/project", run:',
   '```bash',
@@ -154,6 +156,49 @@ function printSeparator(title: string): void {
   console.log(`\n${line}`);
   console.log(`  ${title}`);
   console.log(`${line}\n`);
+}
+
+// ─── Claude Code 原生 Skill 安装 ────────────────────────────────────
+
+function installClaudeCodeSkills(sourceDir: string, projectRoot: string): { installed: string[]; errors: string[] } {
+  const installed: string[] = [];
+  const errors: string[] = [];
+
+  if (!fs.existsSync(sourceDir)) {
+    return { installed, errors: [`Source dir not found: ${sourceDir}`] };
+  }
+
+  const skillFiles = fs.readdirSync(sourceDir).filter(f => f.endsWith('.md'));
+  const skillsDir = path.join(projectRoot, '.claude', 'skills');
+
+  for (const f of skillFiles) {
+    try {
+      const raw = fs.readFileSync(path.join(sourceDir, f), 'utf-8');
+      const { meta, body } = parseFrontmatter(raw);
+
+      const name = meta.name || path.basename(f, '.md');
+      const skillDir = path.join(skillsDir, name);
+      const skillMdPath = path.join(skillDir, 'SKILL.md');
+
+      fs.mkdirSync(skillDir, { recursive: true });
+
+      const ccFrontmatter = [
+        '---',
+        `name: ${name}`,
+        `description: ${meta.description || ''}`,
+        'user-invocable: true',
+        '---',
+        '',
+      ].join('\n');
+
+      fs.writeFileSync(skillMdPath, ccFrontmatter + body, 'utf-8');
+      installed.push(name);
+    } catch (e: any) {
+      errors.push(`${f}: ${e.message}`);
+    }
+  }
+
+  return { installed, errors };
 }
 
 async function main(): Promise<void> {
@@ -302,9 +347,30 @@ async function main(): Promise<void> {
           fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
         }
 
+        // 安装 Claude Code 原生 skill（/.claude/skills/<name>/SKILL.md）
+        const ccResult = installClaudeCodeSkills(skillsDest, projectRoot);
+        for (const name of ccResult.installed) {
+          console.log(`    + .claude/skills/${name}/`);
+        }
+        for (const err of ccResult.errors) {
+          console.log(`    ! ${err}`);
+        }
+
         console.log('\n✅ 初始化完成\n');
       } else {
         console.log('[1/4] 项目已初始化，跳过\n');
+
+        // 已有项目也安装/更新 Claude Code 原生 skill
+        const existingSkillsDir = path.join(projectRoot, '.github', 'prompts', 'skills');
+        if (fs.existsSync(existingSkillsDir)) {
+          const ccResult = installClaudeCodeSkills(existingSkillsDir, projectRoot);
+          if (ccResult.installed.length > 0) {
+            console.log('    = Claude Code skills 已更新:');
+            for (const name of ccResult.installed) {
+              console.log(`      .claude/skills/${name}/`);
+            }
+          }
+        }
       }
 
       // ── Step 2: 确保全局 skill 仓库存在 ──
@@ -329,15 +395,17 @@ async function main(): Promise<void> {
       // ── Step 4: Skill 选择提示 ──
       console.log('\n[4/4] Skill 选择\n');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('  请选择操作：');
+      console.log('  输入 `/` 查看可用角色并选择：');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
-      console.log('  1. 选择已有 Skill 开始开发');
-      console.log('  2. 创建新的项目 Skill');
-      console.log('  3. 创建新的个人 Skill');
-      console.log('  4. 跳过，直接开始');
+      console.log('  /analyst         需求分析师');
+      console.log('  /architect       系统架构师');
+      console.log('  /backend         后端开发');
+      console.log('  /frontend        前端开发');
+      console.log('  /review          代码审查');
+      console.log('  /database-handler 数据库处理');
       console.log('');
-      console.log('  在 Claude Code 中输入对应数字或直接开始对话');
+      console.log('  或在 Claude Code 中直接描述你的需求。');
       console.log('');
 
       break;
@@ -504,6 +572,15 @@ async function main(): Promise<void> {
         console.log(`\n[5/5] 跳过（${assistant} 不需要 .claude/settings.json）`);
       }
 
+      // 安装 Claude Code 原生 skill（/.claude/skills/<name>/SKILL.md）
+      const ccResult = installClaudeCodeSkills(skillsDest, projectRoot);
+      for (const name of ccResult.installed) {
+        console.log(`    + .claude/skills/${name}/`);
+      }
+      for (const err of ccResult.errors) {
+        console.log(`    ! ${err}`);
+      }
+
       // ── Step 6: 写入 .pmcp-root 标记文件 ──
       console.log('\n[6/6] 写入 .pmcp-root 标记...\n');
       const pmcpRootMarker = path.join(projectRoot, '.pmcp-root');
@@ -527,7 +604,7 @@ async function main(): Promise<void> {
       console.log('═'.repeat(60));
       console.log('');
       console.log('下一步：');
-      console.log('  1. 在上方角色列表中选择一个角色（Skill）');
+      console.log('  1. 输入 `/` 从自动补全菜单中选择角色（如 `/analyst`）');
       console.log('  2. 或用 Claude Code 打开项目，SessionStart hook 会自动加载上下文');
       console.log('');
       break;
@@ -1194,6 +1271,9 @@ Examples:
         break;
       }
 
+      if (!Array.isArray(state.history)) {
+        state.history = [];
+      }
       state.history.push({
         stage: 'spec-pending',
         entered: new Date().toISOString(),

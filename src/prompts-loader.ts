@@ -238,14 +238,20 @@ export function formatBootstrap(result: BootstrapResult): string {
   if (result.skills) {
     lines.push('## ⚡ 选择你的角色');
     lines.push('');
-    lines.push('在通过 Hard Gate 预检后，**必须**先询问用户想以哪个角色开发。');
+    lines.push('在通过 Hard Gate 预检后，输入 `/` 查看可用角色命令：');
     lines.push('');
     const skills = result.skills.split('\n').filter(l => l.startsWith('|') && !l.startsWith('|---') && !l.startsWith('| #'));
     for (const s of skills) {
-      lines.push(s);
+      const nameMatch = s.match(/\*\*(\S+)\*\*/);
+      const name = nameMatch ? nameMatch[1] : '';
+      const descMatch = s.match(/\| ([^|]+?) \| v/);
+      const desc = descMatch ? descMatch[1].replace(/\*\*/g, '').trim() : '';
+      if (name) {
+        lines.push(`- \`/${name}\` — ${desc}`);
+      }
     }
     lines.push('');
-    lines.push('> 调用 `select_skill` 加载对应 Skill 后再开始工作。');
+    lines.push('> 输入 `/` 后从自动补全菜单中选择，或直接输入完整命令如 `/analyst`。');
     lines.push('');
     lines.push('---');
     lines.push('');

@@ -5,7 +5,7 @@
 
 ## W-0001
 
-- Window progress: 36/10
+- Window progress: 4/10
 
 
 ### Carry Forward
@@ -46,5 +46,19 @@ Carry-forward from W-0003:
 ---
 
 ## W-0004
+
+- Window progress: 0/10
+
+
+### Carry Forward
+
+Carry-forward from W-0004:
+- Files modified: C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md, C:\admin\Code\Project\prompts-mcp-server\.github\prompts\task-state.json, C:\admin\Code\Project\prompts-mcp-server\src\__tests__\pre-tool-use.test.ts, C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\pre-tool-use.cjs
+- Commands: npx pmcp start; npm ls -g --depth=0 2>&1 | head -20; npm ls -g pmcp-server 2>&1; which pmcp 2>&1 || where pmcp 2>&1; ls -la /c/nvm4w/nodejs/pmcp* 2>&1
+- Total events in window: 100
+
+---
+
+## W-0005
 
 - Window progress: 0/10

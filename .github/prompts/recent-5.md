@@ -3,38 +3,36 @@
 > Auto-generated from tool-use hooks. Do not edit manually.
 > Showing last 5 state-changing events.
 
-## Event-199
+## Event-303
 
-- **Time**: 2026-05-22 11:46:06
+- **Time**: 2026-05-23 12:04:31
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && mv .github/prompts/task-state.json.bak .github/prompts/task-state.json`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && mv .github/prompts/task-state.json.bak .github/prom
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git push origin HEAD:master`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git push origin HEAD:master
+## Event-304
 
-## Event-200
-
-- **Time**: 2026-05-22 11:48:25
-- **Tool**: `Write`
-- **Target**: `C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md`
-- **Summary**: Created/rewrote C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md
-
-## Event-201
-
-- **Time**: 2026-05-22 11:48:57
-- **Tool**: `Write`
-- **Target**: `C:\admin\Code\Project\prompts-mcp-server\.github\prompts\task-state.json`
-- **Summary**: Created/rewrote C:\admin\Code\Project\prompts-mcp-server\.github\prompts\task-state.json
-
-## Event-202
-
-- **Time**: 2026-05-22 11:49:17
+- **Time**: 2026-05-23 13:43:16
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git add -f .github/prompts/focus-spec.md .github/prompts/task-state.json && git commit -m "$(cat <<'EOF'
-chore: prepare for PreToolUse full-chain verif`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git add -f .github/prompts/focus-spec.md .github/pr
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && ls -la src/cli.ts 2>/dev/null && head -5 src/cli.ts`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && ls -la src/cli.ts 2>/dev/null && head -5 src/cli.ts
 
-## Event-203
+## Event-305
 
-- **Time**: 2026-05-22 11:49:30
+- **Time**: 2026-05-23 13:43:16
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== Current Stage ===" && node -e "console.log(require('./.github/prompts/task-state.json').stage)" && echo "" && echo "=== Focus Spec Status ===`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== Current Stage ===" && node -e "console.lo
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && cat package.json | head -30`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && cat package.json | head -30
+
+## Event-306
+
+- **Time**: 2026-05-23 13:43:43
+- **Tool**: `Bash`
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && ls build/cli.js 2>/dev/null && echo "BUILD EXISTS" || echo "NEED BUILD"`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && ls build/cli.js 2>/dev/null && echo "BUILD EXISTS" 
+
+## Event-307
+
+- **Time**: 2026-05-23 13:45:11
+- **Tool**: `Bash`
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && node build/cli.js start`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && node build/cli.js start
