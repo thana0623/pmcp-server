@@ -167,7 +167,8 @@ export function formatBootstrap(result: BootstrapResult): string {
   // ─── Hard Gate: 需求预检（最高优先级，必须最先输出） ───
   lines.push('## 🛑🛑🛑 HARD GATE：需求预检 [最高优先级 - 不可跳过] 🛑🛑🛑');
   lines.push('');
-  lines.push('> ⚠️ 此关卡在所有 Skill 选择之前。未通过此关卡，禁止一切写操作。');
+  lines.push('> ⚠️ 此关卡在所有 Skill 选择之前。未通过此关卡，禁止一切写操作和分析工作。');
+  lines.push('> ⚠️ 即使用户指定了角色（如"architect"），也必须先完成预检。角色选择不等于跳过预检。');
   lines.push('');
 
   if (!result.focusSpec || !result.focusSpec.content) {
@@ -175,18 +176,21 @@ export function formatBootstrap(result: BootstrapResult): string {
     lines.push('### ❌ focus-spec.md 不存在');
     lines.push('');
     lines.push('```');
-    lines.push('╔══════════════════════════════════════════════════════════╗');
-    lines.push('║  🛑 STOP — 你必须立即执行以下操作，不得继续：            ║');
-    lines.push('╠══════════════════════════════════════════════════════════╣');
-    lines.push('║  1. 对话式提问：场景、边界、黑名单、验收标准              ║');
-    lines.push('║  2. 生成 .github/prompts/focus-spec.md                   ║');
-    lines.push('║  3. 明文提示用户审查并输入 y 或 approve                  ║');
-    lines.push('║  4. 收到 y/approve 之前，禁止 Write/Edit/Bash(写)         ║');
-    lines.push('╚══════════════════════════════════════════════════════════╝');
+    lines.push('╔══════════════════════════════════════════════════════════════════╗');
+    lines.push('║  🛑 STOP — 你必须立即停止一切工作，执行以下操作：                 ║');
+    lines.push('╠══════════════════════════════════════════════════════════════════╣');
+    lines.push('║  1. 停止：不要分析代码、不要检查进度、不要执行任何任务            ║');
+    lines.push('║  2. 提问：向用户询问本次要做什么任务                              ║');
+    lines.push('║  3. 生成：对话式澄清后生成 .github/prompts/focus-spec.md          ║');
+    lines.push('║  4. 等待：提示用户输入 y/approve 签字                            ║');
+    lines.push('║  5. 收到 y/approve 之前，禁止 Write/Edit/Bash(写) 和任务分析      ║');
+    lines.push('╚══════════════════════════════════════════════════════════════════╝');
     lines.push('```');
     lines.push('');
-    lines.push('**允许的操作**：Read / Glob / Grep（只读类）');
-    lines.push('**禁止的操作**：Write / Edit / Bash（写操作类）');
+    lines.push('**允许的操作**：Read / Glob / Grep（只读类，仅用于理解项目结构）');
+    lines.push('**禁止的操作**：Write / Edit / Bash（写操作类）、任务分析、代码审查、进度检查');
+    lines.push('');
+    lines.push('> 💡 正确流程：先问用户"本次要做什么" → 澄清需求 → 生成 focus-spec → 签字 → 再开始工作');
     lines.push('');
   } else {
     // focus-spec.md 存在 — 判断是否已签字确认
@@ -199,14 +203,14 @@ export function formatBootstrap(result: BootstrapResult): string {
       lines.push('### ⚠️ focus-spec.md 存在但未签字确认');
       lines.push('');
       lines.push('```');
-      lines.push('╔══════════════════════════════════════════════════════════╗');
-      lines.push('║  🛑 STOP — 契约文档等待人类签字：                       ║');
-      lines.push('╠══════════════════════════════════════════════════════════╣');
-      lines.push('║  1. 向用户展示 focus-spec.md 内容摘要                    ║');
-      lines.push('║  2. 明文提示：「请审查。输入 y/approve 签字，或描述修改意见」║');
-      lines.push('║  3. 收到 y/approve 后，将 status 改为 confirmed          ║');
-      lines.push('║  4. 签字确认前，禁止一切写操作                            ║');
-      lines.push('╚══════════════════════════════════════════════════════════╝');
+      lines.push('╔══════════════════════════════════════════════════════════════════╗');
+      lines.push('║  🛑 STOP — 契约文档等待人类签字：                                 ║');
+      lines.push('╠══════════════════════════════════════════════════════════════════╣');
+      lines.push('║  1. 向用户展示 focus-spec.md 内容摘要                            ║');
+      lines.push('║  2. 明文提示：「请审查。输入 y/approve 签字，或描述修改意见」    ║');
+      lines.push('║  3. 收到 y/approve 后，将 status 改为 confirmed                  ║');
+      lines.push('║  4. 签字确认前，禁止一切写操作和任务分析                          ║');
+      lines.push('╚══════════════════════════════════════════════════════════════════╝');
       lines.push('```');
       lines.push('');
     } else {
