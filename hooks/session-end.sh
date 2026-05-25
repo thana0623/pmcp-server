@@ -29,7 +29,7 @@ fi
 
 # Step 3: Auto-commit
 git add "$PROMPTS_SUBDIR/" logs/
-git commit -m "auto: update prompts and logs on session end" --no-verify 2>/dev/null
+git commit -m "auto: update prompts and logs on session end" 2>/dev/null
 
 if [ $? -eq 0 ]; then
   echo "Changes committed (prompts + logs)."

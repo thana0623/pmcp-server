@@ -1,24 +1,26 @@
-> task-id: observability-and-archive
-> created: 2026-05-25T11:50:00Z
+> task-id: secret-scanning-guard
+> created: 2026-05-25T15:00:00Z
 > status: confirmed
 
 ## 1. 场景还原
 
-用户对系统运行状态感知度低，不知道日志压缩是否正常工作。同时新需求会直接覆盖未完成的 focus-spec，导致进度丢失。需要：
-- 启动时显示系统健康摘要（C）
-- 提供手动检查命令 `pmcp status`（B）
-- 新任务前自动归档旧 focus-spec（A）
+项目当前没有敏感信息防护。session-end 自动提交使用 `--no-verify` 绕过 git hooks，手动提交也没有 pre-commit 检查。需要建立两层防护：
+- 层 1：PostToolUse 写入时预警
+- 层 2：Git pre-commit 提交时硬拦截
+- 去掉 session-end 的 `--no-verify`，让自动提交也走检查
 
 ## 2. 核心业务边界
 
-IN: src/cli.ts（添加 status 命令）
-IN: src/prompts-loader.ts（添加状态加载逻辑）
-IN: adapters/claude-code/session-start.sh（添加启动摘要）
-IN: .prompts-mcp/adapters/claude-code/session-start.sh（同上）
-IN: hooks/process-logs.sh（添加归档逻辑）
-IN: .github/prompts/focus-spec-history（归档目录）
+IN: hooks/scan-secrets.sh
+IN: .git/hooks/pre-commit
+IN: hooks/session-end.sh
+IN: .claude/settings.json
+IN: .prompts-mcp/hooks/scan-secrets.sh
+IN: .prompts-mcp/hooks/post-write-scan.sh
+IN: .prompts-mcp/pre-tool-use.cjs
 OUT: src/index.ts
-OUT: 数据库相关文件
+OUT: src/cli.ts
+OUT: src/prompts-loader.ts
 
 ## 3. 禁止触碰黑名单
 
@@ -28,9 +30,8 @@ OUT: 数据库相关文件
 
 ## 4. 核心测试断言清单
 
-- assertEqual(pmcp status exit code, 0)
-- assertStringContains(pmcp status output, "Window")
-- assertStringContains(pmcp status output, "Event-")
-- assertFileExists(.github/prompts/focus-spec-history/)
-- assertEqual(pmcp new-requirement 归档旧文件数, 1)
-- assertStringContains(session-start 输出, "最近事件")
+- assertExitCode(hooks/scan-secrets.sh "API_KEY=sk-test123", 1)
+- assertExitCode(hooks/scan-secrets.sh "normal code", 0)
+- assertStringContains(scan-secrets output "API_KEY")
+- assertFileExists(.git/hooks/pre-commit)
+- assertNotStringContains(hooks/session-end.sh, "--no-verify")

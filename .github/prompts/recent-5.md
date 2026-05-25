@@ -3,33 +3,33 @@
 > Auto-generated from tool-use hooks. Do not edit manually.
 > Showing last 5 state-changing events.
 
-## Event-447
+## Event-492
 
-- **Time**: 2026-05-25 08:04:55
+- **Time**: 2026-05-25 08:27:18
 - **Tool**: `Bash`
-- **Target**: `npx pmcp start`
-- **Summary**: Ran: npx pmcp start
-## Event-448
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== 测试 3: 多种敏感信息 ===" && printf 'password = "mypassword123"\nAWS_KEY=AKIAIOSFODNN7EXAMPLE\n-----BEGIN RSA PRIVATE KEY-----\nemail: user@company.c`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== 测试 3: 多种敏感信息 ===" && printf 'password = "
+## Event-493
 
-- **Time**: 2026-05-25 08:06:01
+- **Time**: 2026-05-25 08:27:34
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git log --oneline -10`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git log --oneline -10
-## Event-449
+- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== 测试 4: 白名单文件 ===" && echo 'API_KEY = "sk-test12345678abcdef"' | bash hooks/scan-secrets.sh --stdin < /dev/null && echo "PASS" || echo "exit=$?`
+- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== 测试 4: 白名单文件 ===" && echo 'API_KEY = "sk-t
+## Event-494
 
-- **Time**: 2026-05-25 08:06:52
-- **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== cli.ts 中 status 相关 ===" && grep -n "status" src/cli.ts | head -10 && echo "" && echo "=== 架构精简任务完成度 ===" && git log --oneline --all | grep -i`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && echo "=== cli.ts 中 status 相关 ===" && grep -n "statu
-## Event-450
+- **Time**: 2026-05-25 08:27:41
+- **Tool**: `TaskUpdate`
+- **Target**: `5`
+- **Summary**: Updated task 5 -> completed
+## Event-495
 
-- **Time**: 2026-05-25 08:08:52
+- **Time**: 2026-05-25 08:29:12
 - **Tool**: `Bash`
 - **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git status`
 - **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git status
-## Event-451
+## Event-496
 
-- **Time**: 2026-05-25 08:08:57
+- **Time**: 2026-05-25 08:29:17
 - **Tool**: `Bash`
 - **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git diff --stat`
 - **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git diff --stat

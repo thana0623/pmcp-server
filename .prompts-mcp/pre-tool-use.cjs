@@ -56,13 +56,14 @@ process.stdin.on('end', () => {
       process.exit(2);
     }
 
-    // Extract IN: lines
+    // Extract IN: lines (strip parenthetical descriptions for matching)
     const inPatterns = [];
     const lines = specContent.split('\n');
     for (const line of lines) {
       const match = line.match(/^IN:\s*(.+)$/);
       if (match) {
-        inPatterns.push(match[1].trim());
+        const raw = match[1].trim();
+        inPatterns.push(raw.replace(/[（(][^）)]*[）)]\s*$/, '').trim());
       }
     }
 

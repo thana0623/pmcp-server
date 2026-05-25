@@ -1,16 +1,16 @@
 {
   "stage": "confirmed",
-  "taskId": "simplify-architecture",
+  "taskId": "secret-scanning-guard",
   "history": [
     {
       "stage": "spec-pending",
-      "entered": "2026-05-24T12:00:00Z",
-      "note": "架构精简"
+      "entered": "2026-05-25T15:00:00Z",
+      "note": "敏感信息检测两层防护"
     },
     {
       "stage": "confirmed",
-      "entered": "2026-05-24T12:01:00Z",
-      "note": "用户签字确认"
+      "entered": "2026-05-25T15:01:00Z",
+      "note": "用户确认继续"
     }
   ]
 }
