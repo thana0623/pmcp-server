@@ -339,17 +339,43 @@ async function main(): Promise<void> {
       const bootstrapResult = bootstrap();
       console.log(formatBootstrap(bootstrapResult));
 
+      // ── Step 3.5: ECC 检测与引导 ──
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      const eccRulesDir = path.join(homeDir, '.claude', 'rules', 'ecc');
+      if (fs.existsSync(eccRulesDir)) {
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('  ECC 已安装');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('');
+        console.log('  ECC (Everything Claude Code) 提供企业级开发能力：');
+        console.log('');
+        console.log('  可用命令:');
+        console.log('    /tdd            测试驱动开发');
+        console.log('    /code-review    代码质量审查');
+        console.log('    /security-scan  安全扫描');
+        console.log('    /plan           实现规划');
+        console.log('    /build-fix      构建错误修复');
+        console.log('');
+        console.log('  PMCP + ECC 分工:');
+        console.log('    PMCP 管上下文（需求契约、模块记录、对话日志）');
+        console.log('    ECC  管行为（质量门禁、TDD、代码审查、安全扫描）');
+        console.log('');
+        console.log('  建议流程: 选角色 → 开发 → /code-review → /security-scan → 提交');
+        console.log('');
+      }
+
       // ── Step 4: Skill 选择提示 ──
       console.log('\n[4/4] Skill 选择\n');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('  请选择角色（说出角色名即可）：');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
-      console.log('  analyst          需求分析师');
-      console.log('  architect        系统架构师');
-      console.log('  backend          后端开发');
-      console.log('  frontend         前端开发');
-      console.log('  review           代码审查');
+      const skills = listSkills();
+      const maxNameLen = Math.max(...skills.map(s => s.meta.name.length));
+      for (const s of skills) {
+        const padded = s.meta.name.padEnd(maxNameLen + 2);
+        console.log(`  ${padded}${s.meta.description}`);
+      }
       console.log('');
       console.log('  直接说出角色名，或描述你的需求。');
       console.log('');
