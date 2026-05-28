@@ -1,12 +1,23 @@
 {
-  "stage": "spec-pending",
-  "taskId": null,
+  "stage": "confirmed",
+  "taskId": "enforce-contract-immutability",
+  "contractHash": "806598d69fc4f93f7854e1016718d59a77083f69a8765d2c8c817157f5f11fcc",
   "history": [
     {
       "stage": "confirmed",
-      "entered": "2026-05-25T15:00:00Z",
-      "exited": "2026-05-25T10:00:00Z",
-      "note": "secret-scanning-guard 已完成并归档"
+      "entered": "2026-05-28T01:10:00+08:00",
+      "note": "需求签字确认：enforce-contract-immutability"
+    },
+    {
+      "stage": "archived",
+      "entered": "2026-05-28T10:00:00+08:00",
+      "exited": "2026-05-28T01:10:00+08:00",
+      "note": "ecc-workflow-integration 已完成并归档"
+    },
+    {
+      "stage": "archived",
+      "entered": "2026-05-27T10:00:00+08:00",
+      "note": "需求归档：review-workflow-and-dialog-logging"
     }
   ]
 }
