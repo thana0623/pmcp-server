@@ -1,21 +1,8 @@
-# Recent Dialogs (auto-managed by hooks)
+# 最近对话记录（自动维护）
 
-> Auto-generated from session summaries. Do not edit manually.
-> Showing last 5 dialog sessions.
+> 由 session-end hook 自动生成，勿手动编辑。
+> 保留最近 5 条对话。
 
-## Dialog-560
-
-- **Time**: 2026-05-31 16:51:07
-- **User**: > pmcp start
-
-  Thought for 3s (ctrl+o to expand)
-
-● Bash(npx pmcp start)
-  ⎿  ════════════════════════════════════════════════════════════
-       Prompts MCP - 一键启动
-     ═════════════════════════════
-- **Outcome**: 对话（无文件修改）
-- **Files**: (none)
 ## Dialog-561
 
 - **Time**: 2026-05-31 18:38:56
@@ -42,3 +29,9 @@
 - **User**: pmcp start
 - **Outcome**: 对话（无文件修改）
 - **Files**: (none)
+## 对话-565
+
+- **时间**: 2026-06-01 03:55:02
+- **用户问题**: pmcp start
+- **本轮改动**: (无)
+- **结果**: 对话（无代码修改）

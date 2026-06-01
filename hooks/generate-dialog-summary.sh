@@ -239,6 +239,12 @@ if (state.windowCount >= 10) {
   summaryContent += '\n\n---\n\n## ' + state.windowId + '\n\n- 窗口进度: 0/10\n';
 }
 
+// 淘汰旧 carry-forward：只保留最近 3 个窗口
+const allSections = summaryContent.split(/\n---\n(?=\n## W-)/);
+if (allSections.length > 4) { // header + 最近 3 个窗口
+  summaryContent = allSections[0] + '\n---\n' + allSections.slice(-3).join('\n---\n');
+}
+
 fs.writeFileSync(SUMMARY_FILE, summaryContent);
 
 // ─── 更新 log-state.json ──────────────────────────────────────────────

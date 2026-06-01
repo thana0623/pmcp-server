@@ -29,9 +29,16 @@ const session = data.session_id || 'unknown';
 const sessionsDir = path.join(process.env.PROJECT_DIR, 'logs', 'sessions');
 fs.mkdirSync(sessionsDir, { recursive: true });
 
+// 清洗用户消息：剥离 ANSI 转义码、box-drawing 字符、合并空白
+let cleaned = prompt
+  .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')           // ANSI 转义码
+  .replace(/[│├┤┬┴┼─━┃╔╗╚╝║═]/g, ' ')             // box-drawing 字符
+  .replace(/\s+/g, ' ')                              // 合并空白
+  .trim();
+
 const entry = {
   time: new Date().toISOString(),
-  prompt: prompt.slice(0, 500)
+  prompt: cleaned.slice(0, 500)
 };
 
 const logFile = path.join(sessionsDir, session + '.prompts.jsonl');

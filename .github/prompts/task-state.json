@@ -5,6 +5,31 @@
   "history": [
     {
       "stage": "archived",
+      "entered": "2026-06-01T10:04:12.416Z",
+      "note": "context-lifecycle-fix + ecc-integration 归档完成：双写消除、context.md 动态刷新、carry-forward 淘汰、Agent 轻量级日志、ECC 真正集成（4 层强制）"
+    },
+    {
+      "stage": "archived",
+      "entered": "2026-06-01T09:52:30.277Z",
+      "note": "pmcp advance-stage 手动转换: spec-pending → archived"
+    },
+    {
+      "stage": "spec-pending",
+      "entered": "2026-06-01T09:51:27.633Z",
+      "note": "pmcp advance-stage 手动转换: archived → spec-pending"
+    },
+    {
+      "stage": "archived",
+      "entered": "2026-06-01T09:43:29.556Z",
+      "note": "pmcp advance-stage 手动转换: spec-pending → archived"
+    },
+    {
+      "stage": "spec-pending",
+      "entered": "2026-06-01T09:42:54.081Z",
+      "note": "pmcp advance-stage 手动转换: archived → spec-pending"
+    },
+    {
+      "stage": "archived",
       "entered": "2026-06-01T12:45:00+08:00",
       "note": "fix-dialog-logging-system 归档完成：管线A重接、对话总结中文化、格式统一、dead code 清理"
     },

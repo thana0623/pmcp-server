@@ -270,3 +270,7 @@ Carry-forward from W-0019:
 ## W-0020
 
 - Window progress: 0/10
+
+## W-0020
+
+- 窗口进度: 2/10

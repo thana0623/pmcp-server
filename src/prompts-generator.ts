@@ -250,6 +250,7 @@ function detectPackageManager(files: string[]): string {
   if (names.has('pnpm-lock.yaml')) return 'pnpm';
   if (names.has('yarn.lock')) return 'yarn';
   if (names.has('package-lock.json')) return 'npm';
+  if (names.has('package.json')) return 'npm';  // 回退：有 package.json 但无 lockfile
   if (names.has('pom.xml')) return 'Maven';
   if (names.has('build.gradle')) return 'Gradle';
   return 'Unknown';
@@ -332,6 +333,94 @@ ${info.hasBackend ? `
 - 模块记录: ${config.promptsSubDir}/modules/
 - 待办事项: ${config.promptsSubDir}/todos.md
 `;
+}
+
+/**
+ * 生成 context.md 的 section 1（技术栈部分）
+ * 供 refreshContextMd() 复用
+ */
+export function generateSection1(info: ProjectInfo): string {
+  return `# 项目上下文总览（Context）
+
+> 用途：统一沉淀项目当前技术栈、历史决策、待办事项，以及每日记录索引。
+> 自动生成时间: ${new Date().toISOString().slice(0, 10)}
+
+## 1. 当前技术栈
+
+### 检测到的语言
+${info.languages.map(l => `- ${l}`).join('\n') || '- (未检测到)'}
+
+### 检测到的框架
+${info.frameworks.map(f => `- ${f}`).join('\n') || '- (未检测到)'}
+
+### 构建工具
+${info.buildTools.map(t => `- ${t}`).join('\n') || '- (未检测到)'}
+
+### 数据库/中间件
+${info.databases.map(d => `- ${d}`).join('\n') || '- (未检测到)'}
+
+### 包管理器
+- ${info.packageManager}
+
+### 项目结构
+\`\`\`
+${info.name}/
+${info.topDirs.map(d => `├── ${d}/`).join('\n')}
+\`\`\`
+`;
+}
+
+/**
+ * 刷新 context.md：重新扫描项目，只更新 section 1（技术栈），保留 section 2+（用户编辑）
+ */
+export function refreshContextMd(projectRoot: string): { updated: boolean; changes: string[] } {
+  const info = scanProject(projectRoot);
+  const contextPath = path.join(getPromptsDir(), 'context.md');
+
+  if (!fs.existsSync(contextPath)) {
+    // 首次生成
+    fs.writeFileSync(contextPath, generateContextMd(info), 'utf-8');
+    return { updated: true, changes: ['generated'] };
+  }
+
+  const existing = fs.readFileSync(contextPath, 'utf-8');
+  const section2Index = existing.indexOf('\n## 2.');
+
+  if (section2Index === -1) {
+    // 无 section 2，全量重新生成
+    fs.writeFileSync(contextPath, generateContextMd(info), 'utf-8');
+    return { updated: true, changes: ['full-regen'] };
+  }
+
+  // 只替换 section 1，保留 section 2+
+  const userSections = existing.slice(section2Index);
+  const newSection1 = generateSection1(info);
+  const newContent = newSection1 + '\n' + userSections;
+
+  // 检测变化：比较技术栈关键字段
+  const changes: string[] = [];
+  const oldLangMatch = existing.match(/### 检测到的语言\n([\s\S]*?)(?=\n### )/);
+  const newLangMatch = newSection1.match(/### 检测到的语言\n([\s\S]*?)(?=\n### )/);
+  if (oldLangMatch?.[1]?.trim() !== newLangMatch?.[1]?.trim()) changes.push('languages');
+
+  const oldFwMatch = existing.match(/### 检测到的框架\n([\s\S]*?)(?=\n### )/);
+  const newFwMatch = newSection1.match(/### 检测到的框架\n([\s\S]*?)(?=\n### )/);
+  if (oldFwMatch?.[1]?.trim() !== newFwMatch?.[1]?.trim()) changes.push('frameworks');
+
+  const oldPmMatch = existing.match(/### 包管理器\n- (.+)/);
+  const newPmMatch = newSection1.match(/### 包管理器\n- (.+)/);
+  if (oldPmMatch?.[1]?.trim() !== newPmMatch?.[1]?.trim()) changes.push('packageManager');
+
+  const oldDirMatch = existing.match(/### 项目结构\n```[\s\S]*?```\n/);
+  const newDirMatch = newSection1.match(/### 项目结构\n```[\s\S]*?```\n/);
+  if (oldDirMatch?.[0] !== newDirMatch?.[0]) changes.push('structure');
+
+  if (changes.length === 0) {
+    return { updated: false, changes: [] };
+  }
+
+  fs.writeFileSync(contextPath, newContent, 'utf-8');
+  return { updated: true, changes };
 }
 
 /**
