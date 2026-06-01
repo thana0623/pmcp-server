@@ -366,21 +366,18 @@ async function main(): Promise<void> {
       console.log(formatBootstrap(bootstrapResult));
 
       // ── Step 4: 角色选择提示（终端摘要） ──
-      const skills = listSkills();
+      const skills = listSkills({ hasEcc: bootstrapResult.hasEcc });
       const maxNameLen = Math.max(...skills.map(s => s.meta.name.length));
 
       if (bootstrapResult.hasEcc) {
         console.log('\n[4/4] ECC 工作流\n');
         console.log('═══════════════════════════════════════════════════════════');
-        console.log('  ECC 已检测 → 进入 ECC 工作流');
+        console.log('  ECC 已检测 → 直接进入需求阶段');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
-        for (const s of skills) {
-          const padded = s.meta.name.padEnd(maxNameLen + 2);
-          console.log(`  ${padded}${s.meta.description}`);
-        }
+        console.log('  流程: 需求确认 → /plan → /tdd → /code-review → /security-scan → 提交');
         console.log('');
-        console.log('  流程: 选角色 → 需求门控 → /plan → /tdd → /code-review → /security-scan → 提交');
+        console.log('  请描述你的需求，我来生成 focus-spec.md 契约文档。');
         console.log('');
       } else {
         console.log('\n[4/4] Skill 选择\n');

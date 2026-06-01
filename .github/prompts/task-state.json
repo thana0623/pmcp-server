@@ -1,8 +1,38 @@
 {
   "stage": "archived",
-  "taskId": "fix-pmcp-start-skill-system",
-  "contractHash": "e5e0352facaa85c07075364c42a90aeeeb8c075eb778a3150b74c239575cfc4f",
+  "taskId": "",
+  "contractHash": "",
   "history": [
+    {
+      "stage": "archived",
+      "entered": "2026-06-01T01:30:10.775Z",
+      "note": "ecc-pmcp-integration 归档完成：角色统一 + 生命周期增强"
+    },
+    {
+      "stage": "confirmed",
+      "entered": "2026-06-01T01:18:03.255Z",
+      "note": "hash updated after task breakdown addition"
+    },
+    {
+      "stage": "spec-pending",
+      "entered": "2026-06-01T01:17:41.009Z",
+      "note": "契约完整性校验失败：focus-spec.md 被篡改，hash 不匹配"
+    },
+    {
+      "stage": "confirmed",
+      "entered": "2026-06-01T12:00:00+08:00",
+      "note": "需求签字确认：ecc-pmcp-integration（统一角色系统 + 学习功能接入）"
+    },
+    {
+      "stage": "confirmed",
+      "entered": "2026-06-01T12:00:00+08:00",
+      "note": "需求签字确认：ecc-pmcp-integration（统一角色系统 + 学习功能接入）"
+    },
+    {
+      "stage": "archived",
+      "entered": "2026-06-01T00:00:00+08:00",
+      "note": "fix-pmcp-start-skill-system 归档完成，focus-spec 移入 focus-spec-history/"
+    },
     {
       "stage": "archived",
       "entered": "2026-05-31T00:15:00+08:00",
