@@ -76,6 +76,7 @@ export interface BootstrapResult {
   focusSpec: LoadedContext | null;
   taskState: TaskState | null;
   hasEcc: boolean;
+  archiveHistory: string[];
 }
 
 // ─── Prompt Loaders ──────────────────────────────────────────────────
@@ -135,6 +136,17 @@ export function loadTaskState(): TaskState | null {
   return readJsonSafe<TaskState>(filePath);
 }
 
+/** 加载归档历史摘要（最后 N 条） */
+export function loadArchiveHistory(maxEntries: number = 3): string[] {
+  const filePath = path.join(getPromptsDir(), 'archive-index.md');
+  const content = readFileSafe(filePath);
+  if (!content) return [];
+  // 只取表格行（以 | 开头，排除表头分隔线）
+  const rows = content.split('\n')
+    .filter(l => l.startsWith('|') && !l.startsWith('|---') && !l.startsWith('| #'));
+  return rows.slice(-maxEntries);
+}
+
 export function listModules(): string[] {
   const modulesDir = path.join(getPromptsDir(), 'modules');
   try {
@@ -162,14 +174,15 @@ export function bootstrap(): BootstrapResult {
   const userRules = loadAllRules();
   const logState = loadLogState();
   const modules = listModules();
-  const skills = formatSkillList();
   const focusSpec = loadFocusSpec();
   const taskState = loadTaskState();
 
   const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
   const hasEcc = fs.existsSync(path.join(homeDir, '.claude', 'rules', 'ecc'));
+  const skills = formatSkillList({ hasEcc });
+  const archiveHistory = loadArchiveHistory(3);
 
-  return { context, daily, recent5, summary10, todos, devRules, userRules, logState, modules, skills, focusSpec, taskState, hasEcc };
+  return { context, daily, recent5, summary10, todos, devRules, userRules, logState, modules, skills, focusSpec, taskState, hasEcc, archiveHistory };
 }
 
 /**
@@ -251,17 +264,98 @@ export function formatBootstrap(result: BootstrapResult): string {
       }
     }
 
-    // 生命周期检测提示
-    lines.push('### 🔄 生命周期');
+    // 阶段感知引导
+    const stage = result.taskState?.stage || 'spec-pending';
+    lines.push('### 📍 当前阶段');
     lines.push('');
-    lines.push('- 触发「新需求」「新模块」「换一个任务」→ 主动提问是否重置 focus-spec');
-    lines.push('- `/clear` 后 focus-spec 自动过期，需重新预检');
-    lines.push('- 任务完成并 git commit 后 focus-spec 自动过期');
-    lines.push('');
-  } else {
-    // archived — 门控已通过，显示简要状态
+
+    const stageGuide: Record<string, { label: string; next: string; action: string }> = {
+      'spec-pending': {
+        label: '⏳ 需求待签字',
+        next: '签字确认 focus-spec.md',
+        action: '输入 `y` 或 `approve` 签字',
+      },
+      'confirmed': {
+        label: '✅ 需求已签字',
+        next: '拆分任务 + 定义完成标准',
+        action: '输入 `analyst` 开始任务拆分',
+      },
+      'task-planning': {
+        label: '📋 任务拆分中',
+        next: '选择 ECC agent 开始开发',
+        action: '完成后输入角色名（如 `backend`）开始开发',
+      },
+      'developing': {
+        label: '🔨 开发中',
+        next: '完成开发后进入审查',
+        action: '开发完成后输入 `/code-review`',
+      },
+      'reviewing': {
+        label: '🔍 审查中',
+        next: '审查通过后用户确认',
+        action: '审查完成后等待用户确认',
+      },
+      'user-confirming': {
+        label: '👤 等待用户确认',
+        next: '确认通过 → git commit + 归档',
+        action: '输入 `通过` 确认，或描述问题回到开发',
+      },
+      'completed': {
+        label: '🎉 开发完成',
+        next: 'git commit + /learn + 归档',
+        action: '执行 git commit，然后归档',
+      },
+      'incomplete': {
+        label: '⚠️ 上次未完成',
+        next: '继续或放弃',
+        action: '输入 `继续` 恢复，或 `新需求` 归档后开始新任务',
+      },
+    };
+
+    const guide = stageGuide[stage];
+    if (guide) {
+      lines.push(`**${guide.label}**`);
+      lines.push('');
+      lines.push(`- 下一步：${guide.next}`);
+      lines.push(`- 操作：${guide.action}`);
+      lines.push('');
+    } else {
+      lines.push('- 触发「新需求」「新模块」「换一个任务」→ 主动提问是否重置 focus-spec');
+      lines.push('- `/clear` 后 focus-spec 自动过期，需重新预检');
+      lines.push('');
+    }
+
+    // 归档历史摘要
+    if (result.archiveHistory && result.archiveHistory.length > 0) {
+      lines.push('### 📦 近期归档');
+      lines.push('');
+      lines.push('| # | 任务 | 结果 |');
+      lines.push('|---|------|------|');
+      for (const row of result.archiveHistory) {
+        lines.push(row);
+      }
+      lines.push('');
+    }
+  } else if (isArchived) {
+    // archived — 门控已通过，显示归档状态 + 历史
     lines.push('### ✅ 需求已归档（HARD GATE 已跳过）');
     lines.push('');
+    lines.push('> 当前无活跃需求。可以开始新需求。');
+    lines.push('');
+    lines.push('> 💡 **建议：** 输入 `/clear` 清理上下文后再开始新需求，避免历史上下文污染。');
+    lines.push('');
+
+    // 归档历史摘要
+    if (result.archiveHistory && result.archiveHistory.length > 0) {
+      lines.push('### 📦 近期归档');
+      lines.push('');
+      lines.push('| # | 任务 | 结果 |');
+      lines.push('|---|------|------|');
+      for (const row of result.archiveHistory) {
+        lines.push(row);
+      }
+      lines.push('');
+    }
   }
 
   lines.push('---');
@@ -280,33 +374,29 @@ export function formatBootstrap(result: BootstrapResult): string {
     }
 
     if (result.hasEcc) {
-      // ECC 工作流：PMCP 管需求 + ECC 管开发
+      // ECC 工作流：跳过角色选择，直接进入需求
       lines.push('## ⚡ ECC 工作流');
       lines.push('');
-      lines.push('ECC 已检测到。PMCP 管「做什么」，ECC 管「怎么做」。');
+      lines.push('ECC 已检测 → 直接进入需求阶段，无需选择角色。');
       lines.push('');
-      lines.push('**请先询问用户想以哪个角色开发：**');
+      lines.push('**完整生命周期：**');
       lines.push('');
-      for (const s of skillList) {
-        lines.push(`- **${s.name}** — ${s.desc}`);
-      }
+      lines.push('```');
+      lines.push('spec-pending → confirmed → task-planning → developing → reviewing → user-confirming → completed → archived');
+      lines.push('     签字         拆任务       选agent开发      审查         用户确认       git+学习        归档');
+      lines.push('```');
       lines.push('');
-      lines.push('**工作流（按顺序执行）：**');
+      lines.push('**每一步做什么：**');
       lines.push('');
-      lines.push('1. 选角色（上方列表）');
-      lines.push('2. PMCP: 需求门控 → analyst 输出 focus-spec.md → 人类签字');
-      lines.push('3. ECC:  /plan → planner agent 生成实现计划');
-      lines.push('4. ECC:  /tdd → tdd-guide 驱动 RED-GREEN-REFACTOR');
-      lines.push('5. ECC:  /code-review → code-reviewer 检查质量');
-      lines.push('6. ECC:  /security-scan → security-reviewer 检查漏洞');
-      lines.push('7. PMCP: 自动日志 + git commit');
+      lines.push('1. **需求确认** — analyst agent 输出 focus-spec.md → 人类签字');
+      lines.push('2. **任务拆分** — PMCP 引导拆分子任务 + 定义完成标准');
+      lines.push('3. **选择 agent** — PMCP 引导用户选 ECC agent 开发每个子任务');
+      lines.push('4. **开发** — ECC agent 执行，完成后自动检查完成标准');
+      lines.push('5. **审查** — /code-review + /security-scan 对照完成标准逐项检查');
+      lines.push('6. **用户确认** — 展示完成情况，用户确认通过或打回');
+      lines.push('7. **收尾** — git commit + /learn 提取经验 → 归档');
       lines.push('');
-      lines.push('> 用户说出角色名时，按优先级查找 skill 文件：');
-      lines.push('> 1. `.prompts-mcp/skills/<name>.md`（生成目录）');
-      lines.push('> 2. `.github/prompts/skills/<name>.md`（项目目录）');
-      lines.push('> 3. `~/.pmcp/skills/custom/<name>.md`（全局自定义）');
-      lines.push('> 4. `~/.pmcp/skills/core/<name>.md`（全局核心）');
-      lines.push('> 每个阶段完成后自动进入下一阶段，无需用户手动触发。');
+      lines.push('> 建议：需求归档后输入 `/clear` 清理上下文，再开始新需求。');
     } else {
       // 传统流程：手动选 skill
       lines.push('## ⚡ 选择你的角色');
