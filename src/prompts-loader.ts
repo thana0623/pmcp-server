@@ -79,6 +79,11 @@ export interface BootstrapResult {
 function extractStageSection(workflow: string, stage: string): string | null {
   // Map stage to Phase section heading
   const stageToPhase: Record<string, string> = {
+    // New 3-stage lifecycle
+    'understand': 'Phase 1',
+    'executing': 'Phase 2',
+    'closing': 'Phase 3',
+    // Legacy stages
     'spec-pending': 'Phase 1',
     'confirmed': 'Phase 2',
     'task-planning': 'Phase 3',
@@ -239,10 +244,12 @@ export function formatBootstrap(result: BootstrapResult): string {
   lines.push('');
 
   // ─── Hard Gate: 需求预检（最高优先级，必须最先输出） ───
-  // 当 task-state.json 的 stage 为 archived 时，跳过门控（需求已完成归档）
-  const isArchived = result.taskState?.stage === 'archived';
+  // 当 task-state.json 的 stage 为 archived 或新3阶段生命周期时，跳过门控
+  const currentStageForGate = result.taskState?.stage || 'understand';
+  const isArchived = currentStageForGate === 'archived';
+  const isNewLifecycle = ['understand', 'executing', 'closing'].includes(currentStageForGate);
 
-  if (!isArchived) {
+  if (!isArchived && !isNewLifecycle) {
     lines.push('## 🛑🛑🛑 HARD GATE：需求预检 [最高优先级 - 不可跳过] 🛑🛑🛑');
     lines.push('');
     lines.push('> ⚠️ 此关卡在所有 Skill 选择之前。未通过此关卡，禁止一切写操作和分析工作。');
@@ -250,7 +257,7 @@ export function formatBootstrap(result: BootstrapResult): string {
     lines.push('');
   }
 
-  if (!isArchived) {
+  if (!isArchived && !isNewLifecycle) {
     if (!result.focusSpec || !result.focusSpec.content) {
       // focus-spec.md 不存在 — 强制预检
       lines.push('### ❌ focus-spec.md 不存在');
@@ -314,6 +321,23 @@ export function formatBootstrap(result: BootstrapResult): string {
     lines.push('');
 
     const stageGuide: Record<string, { label: string; next: string; action: string }> = {
+      // New 3-stage lifecycle
+      'understand': {
+        label: '🔍 问题探索',
+        next: '确认解决方向 → ECC 接管执行',
+        action: '描述你遇到的问题，AI 会帮你澄清',
+      },
+      'executing': {
+        label: '⚡ ECC 执行中',
+        next: 'ECC 完成后自动进入总结归档',
+        action: 'ECC agents 正在自动编排，等待完成',
+      },
+      'closing': {
+        label: '📝 总结归档',
+        next: 'git commit + 归档',
+        action: '确认完成情况，执行归档',
+      },
+      // Legacy stages
       'spec-pending': {
         label: '⏳ 需求待签字',
         next: '签字确认 focus-spec.md',
@@ -418,19 +442,53 @@ export function formatBootstrap(result: BootstrapResult): string {
     }
 
     if (result.hasEcc) {
-      const currentStage = result.taskState?.stage || 'spec-pending';
+      const currentStage = result.taskState?.stage || 'understand';
 
       // ECC 模式：强制生命周期引导
       lines.push('## ⚡ ECC 生命周期已激活');
       lines.push('');
       lines.push('```');
-      lines.push('spec-pending → confirmed → task-planning → developing → reviewing → user-confirming → completed → archived');
-      lines.push('     签字         拆任务       选agent开发      审查         用户确认       git+学习        归档');
+      lines.push('Understand（PMCP）-> Execute（ECC）-> Close（PMCP）');
+      lines.push('   问题探索           全量执行         总结归档');
       lines.push('```');
       lines.push('');
 
       // 阶段特定的强制指令
-      if (currentStage === 'spec-pending') {
+      if (currentStage === 'understand') {
+        lines.push('### 🛑 当前阶段：understand — 问题探索');
+        lines.push('');
+        lines.push('**你必须立即执行以下操作：**');
+        lines.push('');
+        lines.push('1. 向用户询问遇到了什么问题（不是想要什么功能）');
+        lines.push('2. 通过对话澄清问题本质、期望效果、约束');
+        lines.push('3. 产出 direction.md（10 行以内），展示给用户确认');
+        lines.push('4. 收到确认后，更新 task-state.json stage 为 `executing`');
+        lines.push('');
+        lines.push('> 💡 不要问"你想要什么功能"，问"现在哪里最痛"。');
+        lines.push('');
+      } else if (currentStage === 'executing') {
+        lines.push('### 📍 当前阶段：executing — ECC 全量执行');
+        lines.push('');
+        lines.push('**ECC 自动编排：**');
+        lines.push('');
+        lines.push('1. 调用 planner agent 拆分任务');
+        lines.push('2. 展示计划给用户确认（仅此一次）');
+        lines.push('3. 按计划调用对应 ECC agent 执行');
+        lines.push('4. 完成后自动调用 code-reviewer 审查');
+        lines.push('5. 审查通过后更新 task-state.json stage 为 `closing`');
+        lines.push('');
+      } else if (currentStage === 'closing') {
+        lines.push('### 📍 当前阶段：closing — 总结归档');
+        lines.push('');
+        lines.push('**收尾操作：**');
+        lines.push('');
+        lines.push('1. 展示完成情况');
+        lines.push('2. 更新 recent-5.md 和 summary-10.md');
+        lines.push('3. git commit 所有变更');
+        lines.push('4. 归档 direction.md');
+        lines.push('5. 更新 task-state.json stage 为 `archived`');
+        lines.push('');
+      } else if (currentStage === 'spec-pending') {
         lines.push('### 🛑 当前阶段：spec-pending — 需求待签字');
         lines.push('');
         lines.push('**你必须立即执行以下操作（不可跳过、不可忽略）：**');
@@ -643,14 +701,16 @@ export function formatBootstrapCompact(result: BootstrapResult): string {
   lines.push('');
 
   // ─── Hard Gate: 需求预检 ───
-  const isArchived = result.taskState?.stage === 'archived';
+  const currentStageForGate2 = result.taskState?.stage || 'understand';
+  const isArchived2 = currentStageForGate2 === 'archived';
+  const isNewLifecycle2 = ['understand', 'executing', 'closing'].includes(currentStageForGate2);
 
-  if (!isArchived) {
+  if (!isArchived2 && !isNewLifecycle2) {
     lines.push('## 🛑 HARD GATE：需求预检');
     lines.push('');
   }
 
-  if (!isArchived) {
+  if (!isArchived2 && !isNewLifecycle2) {
     if (!result.focusSpec || !result.focusSpec.content) {
       lines.push('### ❌ focus-spec.md 不存在');
       lines.push('');
@@ -751,19 +811,34 @@ export function formatBootstrapCompact(result: BootstrapResult): string {
     }
 
     if (result.hasEcc) {
-      const currentStage = result.taskState?.stage || 'spec-pending';
+      const currentStage = result.taskState?.stage || 'understand';
 
       // ECC 模式：强制生命周期引导
       lines.push('## ⚡ ECC 生命周期已激活');
       lines.push('');
       lines.push('```');
-      lines.push('spec-pending → confirmed → task-planning → developing → reviewing → user-confirming → completed → archived');
-      lines.push('     签字         拆任务       选agent开发      审查         用户确认       git+学习        归档');
+      lines.push('Understand（PMCP）-> Execute（ECC）-> Close（PMCP）');
+      lines.push('   问题探索           全量执行         总结归档');
       lines.push('```');
       lines.push('');
 
       // 阶段特定的强制指令
-      if (currentStage === 'spec-pending') {
+      if (currentStage === 'understand') {
+        lines.push('### 🛑 当前阶段：understand — 问题探索');
+        lines.push('');
+        lines.push('> 💡 不要问用户"想用什么角色"，直接问遇到了什么问题。');
+        lines.push('');
+      } else if (currentStage === 'executing') {
+        lines.push('### 📍 当前阶段：executing — ECC 全量执行');
+        lines.push('');
+        lines.push('> ECC agents 正在自动编排执行。');
+        lines.push('');
+      } else if (currentStage === 'closing') {
+        lines.push('### 📍 当前阶段：closing — 总结归档');
+        lines.push('');
+        lines.push('> 展示完成情况，更新日志，git commit，归档。');
+        lines.push('');
+      } else if (currentStage === 'spec-pending') {
         lines.push('### 🛑 当前阶段：spec-pending — 需求待签字');
         lines.push('');
         lines.push('> 💡 不要问用户"想用什么角色"，直接开始需求澄清。');

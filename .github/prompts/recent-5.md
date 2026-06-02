@@ -3,39 +3,72 @@
 > Auto-generated from tool-use hooks. Do not edit manually.
 > Showing last 5 state-changing events.
 
-## Event-692
+## Event-713
 
-- **Time**: 2026-06-02 08:19:11
+- **Time**: 2026-06-02 08:35:48
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && mv .github/prompts/focus-spec.md .github/prompts/focus-spec-history/simplify-startup-and-fix-ecc.md`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && mv .github/prompts/focus-spec.md .github/prompts/fo
+- **Target**: `cat /c/admin/Code/Project/ai-rag-demo/.claude/settings.json`
+- **Summary**: Ran: cat /c/admin/Code/Project/ai-rag-demo/.claude/settings.json
 
-## Event-693
+## Event-714
 
-- **Time**: 2026-06-02 08:19:51
+- **Time**: 2026-06-02 08:36:38
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && cat .github/prompts/archive-index.md 2>/dev/null || echo "# 归档索引" > .github/prompts/archive-index.md`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && cat .github/prompts/archive-index.md 2>/dev/null ||
+- **Target**: `# Check if .prompts-mcp directory exists
+echo "=== 检查 .prompts-mcp 目录 ==="
+echo ""
 
-## Event-694
+for dir in /c/admin/Code/Project/ai-rag-demo /c/admin/Code/Project/cd /c/admin/Code/Project/feed /c/admin/Code/Proje`
+- **Summary**: Ran: # Check if .prompts-mcp directory exists
+echo "=== 检查 .prompts-mcp 目录 ==="
+echo ""
 
-- **Time**: 2026-06-02 08:21:16
-- **Tool**: `Edit`
-- **Target**: `C:\admin\Code\Project\prompts-mcp-server\.github\prompts\archive-index.md`
-- **Summary**: Modified C:\admin\Code\Project\prompts-mcp-server\.github\prompts\archive-index.md
+for dir in /c/ad
 
-## Event-695
+## Event-715
 
-- **Time**: 2026-06-02 08:21:41
+- **Time**: 2026-06-02 08:37:09
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git add -A && git status`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git add -A && git status
+- **Target**: `# Check hook versions
+echo "=== 检查 hooks 版本 ==="
+echo ""
 
-## Event-696
+# Get the latest hook hash
+latest_hash=$(md5sum /c/admin/Code/Project/prompts-mcp-server/adapters/claude-code/session-start.sh 2>/dev/null | c`
+- **Summary**: Ran: # Check hook versions
+echo "=== 检查 hooks 版本 ==="
+echo ""
 
-- **Time**: 2026-06-02 08:22:04
+# Get the latest hook hash
+latest_hash=$(m
+
+## Event-716
+
+- **Time**: 2026-06-02 08:38:08
 - **Tool**: `Bash`
-- **Target**: `cd "C:/admin/Code/Project/prompts-mcp-server" && git commit -m "feat: simplify startup + fix ECC detection
+- **Target**: `# 批量更新所有项目的 hooks
+echo "=== 批量更新 hooks ==="
+echo ""
 
-- Fix ECC detection: add independent check in cli.ts, not relying on bootstrap() return valu`
-- **Summary**: Ran: cd "C:/admin/Code/Project/prompts-mcp-server" && git commit -m "feat: simplify startup + fix ECC det
+for dir in /c/admin/Code/Project/ai-rag-demo /c/admin/Code/Project/cd /c/admin/Code/Project/feed /c/admin/Code/Project/LogSystem /c/admin/Code/Proj`
+- **Summary**: Ran: # 批量更新所有项目的 hooks
+echo "=== 批量更新 hooks ==="
+echo ""
+
+for dir in /c/admin/Code/Project/ai-rag-demo /c
+
+## Event-717
+
+- **Time**: 2026-06-02 08:38:38
+- **Tool**: `Bash`
+- **Target**: `# 验证更新
+echo "=== 验证 hooks 版本 ==="
+echo ""
+
+latest_hash=$(md5sum /c/admin/Code/Project/prompts-mcp-server/adapters/claude-code/session-start.sh 2>/dev/null | cut -d' ' -f1)
+echo "最新 session-start.sh: $`
+- **Summary**: Ran: # 验证更新
+echo "=== 验证 hooks 版本 ==="
+echo ""
+
+latest_hash=$(md5sum /c/admin/Code/Project/prompts-mcp-se
