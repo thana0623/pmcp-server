@@ -630,3 +630,164 @@ export function formatBootstrap(result: BootstrapResult): string {
 
   return lines.join('\n');
 }
+
+/**
+ * 格式化 bootstrap 结果为精简文本（CLI 专用）
+ * 只输出：Hard Gate 状态、当前阶段、下一步操作、角色列表
+ * 不输出：context.md、recent-5.md、summary-10.md、todos.md、dev-rules.md
+ */
+export function formatBootstrapCompact(result: BootstrapResult): string {
+  const lines: string[] = [];
+
+  lines.push('# 🚀 Prompts MCP Server - Bootstrap');
+  lines.push('');
+
+  // ─── Hard Gate: 需求预检 ───
+  const isArchived = result.taskState?.stage === 'archived';
+
+  if (!isArchived) {
+    lines.push('## 🛑 HARD GATE：需求预检');
+    lines.push('');
+  }
+
+  if (!isArchived) {
+    if (!result.focusSpec || !result.focusSpec.content) {
+      lines.push('### ❌ focus-spec.md 不存在');
+      lines.push('');
+      lines.push('> 请描述需求，我来生成 focus-spec.md 契约文档。');
+      lines.push('');
+    } else {
+      const specContent = result.focusSpec.content;
+      const isConfirmed = specContent.includes('status: confirmed') || specContent.includes('status: approved');
+
+      if (!isConfirmed) {
+        lines.push('### ⚠️ focus-spec.md 存在但未签字确认');
+        lines.push('');
+        lines.push('> 请审查契约并输入 y/approve 签字。');
+        lines.push('');
+      } else {
+        lines.push('### ✅ focus-spec.md 已签字确认');
+        lines.push('');
+        lines.push('**契约已锁定。后续编码禁止修改已确认的断言。**');
+        lines.push('');
+      }
+    }
+
+    // 阶段感知引导
+    const stage = result.taskState?.stage || 'spec-pending';
+    lines.push('### 📍 当前阶段');
+    lines.push('');
+
+    const stageGuide: Record<string, { label: string; next: string; action: string }> = {
+      'spec-pending': {
+        label: '⏳ 需求待签字',
+        next: '签字确认 focus-spec.md',
+        action: '输入 `y` 或 `approve` 签字',
+      },
+      'confirmed': {
+        label: '✅ 需求已签字',
+        next: '拆分任务 + 定义完成标准',
+        action: '输入 `analyst` 开始任务拆分',
+      },
+      'task-planning': {
+        label: '📋 任务拆分中',
+        next: '选择 ECC agent 开始开发',
+        action: '确认任务拆分后选择 agent',
+      },
+      'developing': {
+        label: '🔨 开发中',
+        next: '完成开发后审查',
+        action: '输入 `/code-review` 进入审查',
+      },
+      'reviewing': {
+        label: '🔍 审查中',
+        next: '审查通过后用户确认',
+        action: '等待审查完成',
+      },
+      'user-confirming': {
+        label: '👤 等待用户确认',
+        next: '用户确认后归档',
+        action: '输入 `通过` 确认',
+      },
+      'completed': {
+        label: '🎉 开发完成',
+        next: '归档',
+        action: '输入 `归档` 完成',
+      },
+      'incomplete': {
+        label: '⚠️ 上次未完成',
+        next: '继续或开始新需求',
+        action: '输入 `继续` 或 `新需求`',
+      },
+      'archived': {
+        label: '✅ 已归档',
+        next: '开始新需求',
+        action: '描述新需求即可',
+      },
+    };
+
+    const guide = stageGuide[stage];
+    if (guide) {
+      lines.push(`**${guide.label}**`);
+      lines.push(`- 下一步: ${guide.next}`);
+      lines.push(`- 操作: ${guide.action}`);
+      lines.push('');
+    }
+  }
+
+  lines.push('---');
+  lines.push('');
+
+  // 角色选择 + 工作流引导
+  if (result.skills) {
+    const skills = result.skills.split('\n').filter(l => l.startsWith('|') && !l.startsWith('|---') && !l.startsWith('| #'));
+    const skillList: { name: string; desc: string }[] = [];
+    for (const s of skills) {
+      const nameMatch = s.match(/\*\*(\S+)\*\*/);
+      const name = nameMatch ? nameMatch[1] : '';
+      const descMatch = s.match(/\| ([^|]+?) \| v/);
+      const desc = descMatch ? descMatch[1].replace(/\*\*/g, '').trim() : '';
+      if (name) skillList.push({ name, desc });
+    }
+
+    if (result.hasEcc) {
+      const currentStage = result.taskState?.stage || 'spec-pending';
+
+      // ECC 模式：强制生命周期引导
+      lines.push('## ⚡ ECC 生命周期已激活');
+      lines.push('');
+      lines.push('```');
+      lines.push('spec-pending → confirmed → task-planning → developing → reviewing → user-confirming → completed → archived');
+      lines.push('     签字         拆任务       选agent开发      审查         用户确认       git+学习        归档');
+      lines.push('```');
+      lines.push('');
+
+      // 阶段特定的强制指令
+      if (currentStage === 'spec-pending') {
+        lines.push('### 🛑 当前阶段：spec-pending — 需求待签字');
+        lines.push('');
+        lines.push('> 💡 不要问用户"想用什么角色"，直接开始需求澄清。');
+        lines.push('');
+      }
+    } else {
+      // 传统流程：手动选 skill
+      lines.push('## ⚡ 选择你的角色');
+      lines.push('');
+      for (const s of skillList) {
+        lines.push(`- **${s.name}** — ${s.desc}`);
+      }
+      lines.push('');
+    }
+    lines.push('---');
+    lines.push('');
+  }
+
+  // 加载清单（精简版）
+  lines.push('## ✅ 加载清单');
+  lines.push('');
+  lines.push(`✓ context.md: ${result.context.content ? '已加载' : '未找到'}`);
+  lines.push(`✓ Skills: ${result.skills ? '已加载' : '无'}`);
+  lines.push('');
+
+  return lines.join('\n');
+}

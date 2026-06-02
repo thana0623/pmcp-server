@@ -20,6 +20,7 @@
 import {
   bootstrap,
   formatBootstrap,
+  formatBootstrapCompact,
 } from './prompts-loader.js';
 import {
   getProjectRoot,
@@ -268,24 +269,45 @@ async function main(): Promise<void> {
             try { existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); } catch { /* ignore */ }
           }
 
-          const hookBase = '.prompts-mcp/adapters/claude-code';
+          const hookBase = '.prompts-mcp';
           const newSettings = {
             ...existingSettings,
             hooks: {
               ...(existingSettings.hooks || {}),
+              UserPromptSubmit: [{
+                hooks: [{
+                  type: 'command',
+                  command: `node ${hookBase}/capture-prompt.cjs`,
+                  timeout: 5
+                }]
+              }],
+              PreToolUse: [{
+                matcher: 'Write|Edit',
+                hooks: [{
+                  type: 'command',
+                  command: `node ${hookBase}/pre-tool-use.cjs`
+                }]
+              }],
               SessionStart: [{
                 matcher: '*',
                 hooks: [{
                   type: 'command',
-                  command: `bash ${hookBase}/session-start.sh`,
+                  command: `node ${hookBase}/session-start.cjs`,
                   statusMessage: 'Loading project context...'
                 }]
               }],
               PostToolUse: [{
+                matcher: 'Write|Edit',
+                hooks: [{
+                  type: 'command',
+                  command: `node ${hookBase}/post-write-scan.cjs`,
+                  timeout: 10
+                }]
+              }, {
                 matcher: '*',
                 hooks: [{
                   type: 'command',
-                  command: `bash ${hookBase}/normalize-log.sh`,
+                  command: `node ${hookBase}/normalize-log.cjs`,
                   timeout: 5
                 }]
               }],
@@ -293,7 +315,7 @@ async function main(): Promise<void> {
                 matcher: '*',
                 hooks: [{
                   type: 'command',
-                  command: `bash ${hookBase}/session-end.sh`,
+                  command: `node ${hookBase}/session-end.cjs`,
                   statusMessage: 'Finalizing session...',
                   timeout: 30
                 }]
@@ -378,13 +400,17 @@ async function main(): Promise<void> {
         }
       }
 
-      // ── Step 3: 加载上下文 ──
+      // ── Step 3: 加载上下文（精简输出） ──
       console.log('\n[3/4] 加载上下文...\n');
       const bootstrapResult = bootstrap();
-      console.log(formatBootstrap(bootstrapResult));
+      console.log(formatBootstrapCompact(bootstrapResult));
+
+      // ── Step 3.5: ECC 检测（独立于 bootstrap，避免 hasEcc 返回 false） ──
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      const hasEcc = fs.existsSync(path.join(homeDir, '.claude', 'rules', 'ecc'));
 
       // ── Step 4: 角色选择 / ECC 自动进入需求 ──
-      if (bootstrapResult.hasEcc) {
+      if (hasEcc) {
         // ECC 模式：跳过角色选择，自动加载 analyst 进入需求阶段
         console.log('\n[4/4] ECC 已检测 → 自动进入需求阶段\n');
         console.log('═══════════════════════════════════════════════════════════');
@@ -673,24 +699,45 @@ async function main(): Promise<void> {
         }
 
         // hooks 使用相对路径（相对于项目根目录）
-        const hookBase = '.prompts-mcp/adapters/claude-code';
+        const hookBase = '.prompts-mcp';
         const newSettings = {
           ...existingSettings,
           hooks: {
             ...(existingSettings.hooks || {}),
+            UserPromptSubmit: [{
+              hooks: [{
+                type: 'command',
+                command: `node ${hookBase}/capture-prompt.cjs`,
+                timeout: 5
+              }]
+            }],
+            PreToolUse: [{
+              matcher: 'Write|Edit',
+              hooks: [{
+                type: 'command',
+                command: `node ${hookBase}/pre-tool-use.cjs`
+              }]
+            }],
             SessionStart: [{
               matcher: '*',
               hooks: [{
                 type: 'command',
-                command: `bash ${hookBase}/session-start.sh`,
+                command: `node ${hookBase}/session-start.cjs`,
                 statusMessage: 'Loading project context...'
               }]
             }],
             PostToolUse: [{
+              matcher: 'Write|Edit',
+              hooks: [{
+                type: 'command',
+                command: `node ${hookBase}/post-write-scan.cjs`,
+                timeout: 10
+              }]
+            }, {
               matcher: '*',
               hooks: [{
                 type: 'command',
-                command: `bash ${hookBase}/normalize-log.sh`,
+                command: `node ${hookBase}/normalize-log.cjs`,
                 timeout: 5
               }]
             }],
@@ -698,7 +745,7 @@ async function main(): Promise<void> {
               matcher: '*',
               hooks: [{
                 type: 'command',
-                command: `bash ${hookBase}/session-end.sh`,
+                command: `node ${hookBase}/session-end.cjs`,
                 statusMessage: 'Finalizing session...',
                 timeout: 30
               }]

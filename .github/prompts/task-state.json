@@ -5,6 +5,21 @@
   "history": [
     {
       "stage": "archived",
+      "entered": "2026-06-02T15:45:00+08:00",
+      "note": "simplify-startup-and-fix-ecc 归档完成：ECC 检测修复、启动流程精简（308行→50行）"
+    },
+    {
+      "stage": "task-planning",
+      "entered": "2026-06-02T15:35:00+08:00",
+      "note": "架构确认后进入任务拆分阶段"
+    },
+    {
+      "stage": "confirmed",
+      "entered": "2026-06-02T15:30:00+08:00",
+      "note": "需求签字确认：simplify-startup-and-fix-ecc（简化启动流程 + 修复 ECC 检测）"
+    },
+    {
+      "stage": "archived",
       "entered": "2026-06-01T10:04:12.416Z",
       "note": "context-lifecycle-fix + ecc-integration 归档完成：双写消除、context.md 动态刷新、carry-forward 淘汰、Agent 轻量级日志、ECC 真正集成（4 层强制）"
     },
