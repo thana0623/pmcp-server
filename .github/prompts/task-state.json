@@ -1,8 +1,18 @@
 {
-  "stage": "spec-pending",
-  "taskId": "",
+  "stage": "executing",
+  "taskId": "simplify-ecc-lifecycle",
   "contractHash": "",
   "history": [
+    {
+      "stage": "executing",
+      "entered": "2026-06-02T16:00:00+08:00",
+      "note": "签字确认后进入执行阶段：simplify-ecc-lifecycle（3阶段轻量流程）"
+    },
+    {
+      "stage": "understand",
+      "entered": "2026-06-02T15:50:00+08:00",
+      "note": "问题探索：ECC 生命周期太重，需求和架构串行，改为3阶段轻量流程"
+    },
     {
       "stage": "spec-pending",
       "entered": "2026-06-02T08:23:11.185Z",

@@ -411,17 +411,22 @@ async function main(): Promise<void> {
 
       // ── Step 4: 角色选择 / ECC 自动进入需求 ──
       if (hasEcc) {
-        // ECC 模式：跳过角色选择，自动加载 analyst 进入需求阶段
-        console.log('\n[4/4] ECC 已检测 → 自动进入需求阶段\n');
+        // ECC 模式：3阶段轻量流程
+        console.log('\n[4/4] ECC 已检测 → 3阶段轻量流程\n');
         console.log('═══════════════════════════════════════════════════════════');
-        console.log('  已自动加载 analyst 角色');
-        console.log('  请描述你的需求，我来生成 focus-spec.md 契约文档。');
+        console.log('  Understand → Execute → Close');
+        console.log('  请描述你遇到的问题（不是解决方案）。');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
 
         // 展示当前阶段引导
-        const stage = bootstrapResult.taskState?.stage || 'spec-pending';
+        const stage = bootstrapResult.taskState?.stage || 'understand';
         const stageGuide: Record<string, { label: string; next: string }> = {
+          // New 3-stage lifecycle
+          'understand': { label: '🔍 问题探索', next: '描述你遇到的问题 → AI 澄清 → 确认方向 → ECC 接管' },
+          'executing': { label: '⚡ ECC 执行中', next: 'ECC agents 自动编排执行 → 完成后自动进入总结' },
+          'closing': { label: '📝 总结归档', next: '确认完成情况 → git commit → 归档' },
+          // Legacy stages
           'spec-pending': { label: '⏳ 需求待签字', next: '请描述需求 → analyst 生成 focus-spec → 签字' },
           'confirmed': { label: '✅ 需求已签字', next: '输入「拆任务」进入任务拆分阶段' },
           'task-planning': { label: '📋 任务拆分中', next: 'PMCP 引导拆分子任务 → 确认后选择 ECC agent 开发' },
@@ -437,7 +442,7 @@ async function main(): Promise<void> {
           console.log(`  下一步: ${guide.next}`);
           console.log('');
         }
-        console.log('  流程: 需求确认 → 任务拆分 → 选agent开发 → /code-review → 用户确认 → 归档');
+        console.log('  流程: 问题探索 → ECC 全量执行 → 总结归档');
         console.log('');
       } else {
         // 独立模式：展示角色选择
@@ -500,12 +505,12 @@ async function main(): Promise<void> {
         }
       } catch { /* use default */ }
 
-      const validStages = ['spec-pending', 'confirmed', 'task-planning', 'developing', 'reviewing', 'user-confirming', 'completed', 'archived'];
-      const currentStage = state.stage || 'spec-pending';
+      const validStages = ['understand', 'executing', 'closing', 'archived', 'spec-pending', 'confirmed', 'task-planning', 'developing', 'reviewing', 'user-confirming', 'completed'];
+      const currentStage = state.stage || 'understand';
 
       if (!targetStage) {
         // 自动推进到下一阶段
-        const stageOrder = ['spec-pending', 'confirmed', 'task-planning', 'developing', 'reviewing', 'user-confirming', 'completed', 'archived'];
+        const stageOrder = ['understand', 'executing', 'closing', 'archived'];
         const currentIndex = stageOrder.indexOf(currentStage);
         if (currentIndex === -1 || currentIndex >= stageOrder.length - 1) {
           console.log(`当前阶段: ${currentStage}（无法自动推进）`);
@@ -1443,8 +1448,8 @@ Examples:
 
       const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
 
-      if (state.stage === 'spec-pending') {
-        console.log('✅ 当前已是 spec-pending 状态，无需重置。');
+      if (state.stage === 'understand') {
+        console.log('✅ 当前已是 understand 状态，无需重置。');
         break;
       }
 
@@ -1452,20 +1457,19 @@ Examples:
         state.history = [];
       }
       state.history.push({
-        stage: 'spec-pending',
+        stage: 'understand',
         entered: new Date().toISOString(),
         note: '用户/AI 声明新需求，重置状态机',
       });
-      state.stage = 'spec-pending';
+      state.stage = 'understand';
       fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
 
       if (fs.existsSync(specPath)) {
-        fs.writeFileSync(specPath, '> status: expired\n\nfocus-spec 已过期，请通过 analyst 角色重新生成。\n');
+        fs.writeFileSync(specPath, '> status: expired\n\nfocus-spec 已过期，请通过对话式探索重新生成 direction.md。\n');
       }
 
-      console.log('✅ 状态已重置为 spec-pending。');
-      console.log('   下一次 Write/Edit 操作将被 Hard Gate 拦截。');
-      console.log('   请通过 analyst 角色生成新的 focus-spec.md 并签字确认后继续开发。');
+      console.log('✅ 状态已重置为 understand（问题探索）。');
+      console.log('   请描述你遇到的问题，AI 会帮你澄清并生成 direction.md。');
       break;
     }
 

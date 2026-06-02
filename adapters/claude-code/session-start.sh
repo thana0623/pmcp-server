@@ -199,11 +199,11 @@ if [ -f "$STATE_FILE" ]; then
     node -e "
       const fs=require('fs'),p=process.argv[1];
       const s=JSON.parse(fs.readFileSync(p,'utf8'));
-      s.stage='spec-pending';
+      s.stage='understand';
       s.taskId='';
       s.contractHash='';
       s.history=s.history||[];
-      s.history.unshift({stage:'spec-pending',entered:new Date().toISOString(),note:'session-start 自动重置：上一需求已归档，准备新需求'});
+      s.history.unshift({stage:'understand',entered:new Date().toISOString(),note:'session-start 自动重置：上一需求已归档，准备新需求'});
       fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n');
     " "$STATE_FILE" 2>/dev/null || true
   fi
