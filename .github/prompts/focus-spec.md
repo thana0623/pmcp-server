@@ -1,6 +1,7 @@
 > task-id: simplify-ecc-lifecycle
 > created: 2026-06-02
 > status: confirmed
+IN: CLAUDE.md
 
 IN: src/**
 IN: .github/prompts/**
