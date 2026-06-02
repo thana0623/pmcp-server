@@ -5,7 +5,7 @@
 
 ## W-0001
 
-- Window progress: 1/10
+- Window progress: 87/10
 
 
 ### Carry Forward
@@ -105,4 +105,18 @@ Carry-forward from W-0019:
 
 ## W-0020
 
-- 窗口进度: 3/10
+- 窗口进度: 4/10
+
+
+### Carry Forward
+
+Carry-forward from W-0020:
+- Files modified: C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\capture-prompt.cjs, C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\post-write-scan.cjs, C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\normalize-log.cjs, C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\session-start.cjs, C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\session-end.cjs, C:\admin\Code\Project\prompts-mcp-server\.claude\settings.json, C:\admin\Code\Project\prompts-mcp-server\.prompts-mcp\adapters\claude-code\settings.json, C:\admin\Code\Project\prompts-mcp-server\src\cli.ts, test.ts, C:\admin\Code\Project\prompts-mcp-server\.github\prompts\focus-spec.md
+- Commands: pmcp start; ls -la "C:/admin/Code/Project/prompts-mcp-server/.prompts-mcp/" 2>/dev/null | head -30; ls -la "C:/admin/Code/Project/prompts-mcp-server/hooks/" 2>/dev/null | head -20; ls -la ~/.claude/agents/ 2>/dev/null | head -10; ls -la ~/.claude/rules/ecc/ 2>/dev/null | head -10
+- Total events in window: 87
+
+---
+
+## W-0021
+
+- Window progress: 0/10

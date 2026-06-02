@@ -1,8 +1,13 @@
 {
-  "stage": "archived",
+  "stage": "spec-pending",
   "taskId": "",
   "contractHash": "",
   "history": [
+    {
+      "stage": "spec-pending",
+      "entered": "2026-06-02T08:23:11.185Z",
+      "note": "session-start 自动重置：上一需求已归档，准备新需求"
+    },
     {
       "stage": "archived",
       "entered": "2026-06-02T15:45:00+08:00",
