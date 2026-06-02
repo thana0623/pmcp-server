@@ -7,8 +7,7 @@
  *   - auto_start         - 会话自动启动，加载全部上下文 + 规则 + Skills
  *   - init_prompts       - 扫描项目，自动生成原始 prompts 体系
  *   - bootstrap          - 一键启动，自动读取传递链 + 模块记录
- *   - check_requirements - 需求澄清检查（5 项标准）
- *   - make_plan          - 生成可行计划，等待用户确认
+ *   - confirm_direction  - 方向确认（AI 追问后保存目标/约束/验收到 direction.md）
  *   - log_dialog         - 记录对话日志（传递链 + 自动 git commit）
  *   - log_module         - 记录模块修改（目录式）
  *   - read_module        - 修改前读取模块记录
@@ -33,29 +32,12 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import {
-  bootstrap,
-  formatBootstrap,
-} from './prompts-loader.js';
+import { bootstrap, formatBootstrap } from './prompts-loader.js';
 import { config, getProjectRoot, getPromptsDir } from './config.js';
-import {
-  initPrompts,
-} from './prompts-generator.js';
-import {
-  readModuleLog,
-  appendModuleLog,
-} from './module-logger.js';
-import {
-  checkRequirements,
-  formatCheckResult,
-  generatePlan,
-  formatPlan,
-} from './requirements-check.js';
-import {
-  addRule,
-  removeRule,
-  listRules,
-} from './rules-manager.js';
+import { initPrompts } from './prompts-generator.js';
+import { readModuleLog, appendModuleLog } from './module-logger.js';
+import { confirmDirection, readDirection } from './requirements-check.js';
+import { addRule, removeRule, listRules } from './rules-manager.js';
 import {
   listSkills,
   selectSkill,
@@ -63,11 +45,7 @@ import {
   addSkill,
   formatSkillList,
 } from './skills-manager.js';
-import {
-  gitAutoCommit,
-  gitStatus,
-  isGitRepo,
-} from './git-utils.js';
+import { gitAutoCommit, gitStatus, isGitRepo } from './git-utils.js';
 import { logDialog } from './dialog-logger.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -85,7 +63,7 @@ class PromptsMcpServer {
         capabilities: {
           tools: {},
         },
-      }
+      },
     );
 
     this.setupToolHandlers();
@@ -104,7 +82,8 @@ class PromptsMcpServer {
       tools: [
         {
           name: 'init_prompts',
-          description: '【初始化】扫描目标项目，自动生成原始 prompts 体系（context.md / recent-5.md / summary-10.md / todos.md / dev-rules.md / modules/）。已有文件不会覆盖。',
+          description:
+            '【初始化】扫描目标项目，自动生成原始 prompts 体系（context.md / recent-5.md / summary-10.md / todos.md / dev-rules.md / modules/）。已有文件不会覆盖。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -117,43 +96,45 @@ class PromptsMcpServer {
         },
         {
           name: 'bootstrap',
-          description: '【一键启动】自动读取传递链（context.md + daily + recent-5 + summary-10 + todos + 模块记录）。智能体启动时第一步调用。',
+          description:
+            '【一键启动】自动读取传递链（context.md + daily + recent-5 + summary-10 + todos + 模块记录）。智能体启动时第一步调用。',
           inputSchema: {
             type: 'object',
             properties: {},
           },
         },
         {
-          name: 'check_requirements',
-          description: '【需求澄清】执行 5 项需求明确标准检查。不明确时生成追问问题，禁止猜测执行。',
+          name: 'confirm_direction',
+          description:
+            '【方向确认】AI 追问澄清后，用户确认方向时调用。保存目标、约束、验收标准到 direction.md。对话式追问由 AI 自然完成，此工具只负责持久化确认结果。',
           inputSchema: {
             type: 'object',
             properties: {
-              taskDescription: {
+              goal: {
                 type: 'string',
-                description: '用户提出的任务需求描述',
+                description: '一句话目标描述',
+              },
+              constraints: {
+                type: 'array',
+                items: { type: 'string' },
+                description: '关键约束列表（可选）',
+              },
+              acceptance: {
+                type: 'string',
+                description: '验收标准，一句话说明怎么算完成（可选）',
+              },
+              context: {
+                type: 'string',
+                description: '补充说明（可选）',
               },
             },
-            required: ['taskDescription'],
-          },
-        },
-        {
-          name: 'make_plan',
-          description: '【生成计划】在需求已澄清（check_requirements 全部 ✅）后，生成可行执行计划，等待用户确认。',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              taskDescription: {
-                type: 'string',
-                description: '已澄清的任务需求描述',
-              },
-            },
-            required: ['taskDescription'],
+            required: ['goal'],
           },
         },
         {
           name: 'log_dialog',
-          description: '【记录日志】记录一次对话到传递链（daily + recent-5 + summary-10 + log-state.json）。',
+          description:
+            '【记录日志】记录一次对话到传递链（daily + recent-5 + summary-10 + log-state.json）。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -186,7 +167,8 @@ class PromptsMcpServer {
         },
         {
           name: 'log_module',
-          description: '【模块记录】按模块记录一次修改（目录式）。修改功能前先 read_module，修改后调用此工具。',
+          description:
+            '【模块记录】按模块记录一次修改（目录式）。修改功能前先 read_module，修改后调用此工具。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -247,7 +229,8 @@ class PromptsMcpServer {
         },
         {
           name: 'auto_start',
-          description: '【自动启动】会话开始时第一个调用。一键加载全部上下文（context + daily + recent-5 + summary-10 + todos + dev-rules + 用户规则 + 模块记录）。每次新对话开始时必须调用此工具。',
+          description:
+            '【自动启动】会话开始时第一个调用。一键加载全部上下文（context + daily + recent-5 + summary-10 + todos + dev-rules + 用户规则 + 模块记录）。每次新对话开始时必须调用此工具。',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -255,7 +238,8 @@ class PromptsMcpServer {
         },
         {
           name: 'add_rule',
-          description: '【添加规则】添加一条项目规范规则。规则会持久化存储，在每次会话启动时自动加载。',
+          description:
+            '【添加规则】添加一条项目规范规则。规则会持久化存储，在每次会话启动时自动加载。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -299,7 +283,8 @@ class PromptsMcpServer {
         },
         {
           name: 'commit_dialog',
-          description: '【手动提交】手动触发一次 git commit。可指定要提交的文件，不指定则提交所有变更。',
+          description:
+            '【手动提交】手动触发一次 git commit。可指定要提交的文件，不指定则提交所有变更。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -318,7 +303,8 @@ class PromptsMcpServer {
         },
         {
           name: 'list_skills',
-          description: '【技能列表】列出所有可用的角色技能（Skill）。会话启动时自动展示，也可手动调用。',
+          description:
+            '【技能列表】列出所有可用的角色技能（Skill）。会话启动时自动展示，也可手动调用。',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -326,7 +312,8 @@ class PromptsMcpServer {
         },
         {
           name: 'select_skill',
-          description: '【选择技能】选择一个 Skill 作为当前身份角色。返回该 Skill 的完整 prompt（身份 + 开发规范 + 学习记录）。会话开始时应询问用户选择哪个 Skill。',
+          description:
+            '【选择技能】选择一个 Skill 作为当前身份角色。返回该 Skill 的完整 prompt（身份 + 开发规范 + 学习记录）。会话开始时应询问用户选择哪个 Skill。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -340,7 +327,8 @@ class PromptsMcpServer {
         },
         {
           name: 'update_skill',
-          description: '【技能自优化】会话结束时调用，总结本次开发经验并更新 Skill。可追加学习记录、修改开发规范、更新描述。智能体应主动在每次开发后调用此工具自我进化。',
+          description:
+            '【技能自优化】会话结束时调用，总结本次开发经验并更新 Skill。可追加学习记录、修改开发规范、更新描述。智能体应主动在每次开发后调用此工具自我进化。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -397,51 +385,49 @@ class PromptsMcpServer {
       ],
     }));
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request: { params: { name: string; arguments?: any } }) => {
-      const { name, arguments: args } = request.params;
+    this.server.setRequestHandler(
+      CallToolRequestSchema,
+      async (request: { params: { name: string; arguments?: any } }) => {
+        const { name, arguments: args } = request.params;
 
-      switch (name) {
-        case 'init_prompts':
-          return this.handleInitPrompts(args);
-        case 'bootstrap':
-          return this.handleBootstrap();
-        case 'check_requirements':
-          return this.handleCheckRequirements(args);
-        case 'make_plan':
-          return this.handleMakePlan(args);
-        case 'log_dialog':
-          return this.handleLogDialog(args);
-        case 'log_module':
-          return this.handleLogModule(args);
-        case 'read_module':
-          return this.handleReadModule(args);
-        case 'update_todos':
-          return this.handleUpdateTodos(args);
-        case 'auto_start':
-          return this.handleAutoStart();
-        case 'add_rule':
-          return this.handleAddRule(args);
-        case 'list_rules':
-          return this.handleListRules();
-        case 'remove_rule':
-          return this.handleRemoveRule(args);
-        case 'commit_dialog':
-          return this.handleCommitDialog(args);
-        case 'list_skills':
-          return this.handleListSkills();
-        case 'select_skill':
-          return this.handleSelectSkill(args);
-        case 'update_skill':
-          return this.handleUpdateSkill(args);
-        case 'add_skill':
-          return this.handleAddSkill(args);
-        default:
-          throw new McpError(
-            ErrorCode.MethodNotFound,
-            `Unknown tool: ${name}`
-          );
-      }
-    });
+        switch (name) {
+          case 'init_prompts':
+            return this.handleInitPrompts(args);
+          case 'bootstrap':
+            return this.handleBootstrap();
+          case 'confirm_direction':
+            return this.handleConfirmDirection(args);
+          case 'log_dialog':
+            return this.handleLogDialog(args);
+          case 'log_module':
+            return this.handleLogModule(args);
+          case 'read_module':
+            return this.handleReadModule(args);
+          case 'update_todos':
+            return this.handleUpdateTodos(args);
+          case 'auto_start':
+            return this.handleAutoStart();
+          case 'add_rule':
+            return this.handleAddRule(args);
+          case 'list_rules':
+            return this.handleListRules();
+          case 'remove_rule':
+            return this.handleRemoveRule(args);
+          case 'commit_dialog':
+            return this.handleCommitDialog(args);
+          case 'list_skills':
+            return this.handleListSkills();
+          case 'select_skill':
+            return this.handleSelectSkill(args);
+          case 'update_skill':
+            return this.handleUpdateSkill(args);
+          case 'add_skill':
+            return this.handleAddSkill(args);
+          default:
+            throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+        }
+      },
+    );
   }
 
   // ─── Tool Implementations ───────────────────────────────────────
@@ -450,9 +436,7 @@ class PromptsMcpServer {
    * init_prompts: 初始化 prompts 体系
    */
   private async handleInitPrompts(args: any) {
-    const projectRoot = typeof args?.projectRoot === 'string'
-      ? args.projectRoot
-      : getProjectRoot();
+    const projectRoot = typeof args?.projectRoot === 'string' ? args.projectRoot : getProjectRoot();
 
     const result = initPrompts(projectRoot);
 
@@ -476,8 +460,12 @@ class PromptsMcpServer {
     lines.push(`- 框架: ${result.projectInfo.frameworks.join(', ') || '未检测到'}`);
     lines.push(`- 构建工具: ${result.projectInfo.buildTools.join(', ') || '未检测到'}`);
     lines.push(`- 数据库: ${result.projectInfo.databases.join(', ') || '未检测到'}`);
-    lines.push(`- 前端: ${result.projectInfo.hasFrontend ? result.projectInfo.frontendFramework : '无'}`);
-    lines.push(`- 后端: ${result.projectInfo.hasBackend ? result.projectInfo.backendFramework : '无'}`);
+    lines.push(
+      `- 前端: ${result.projectInfo.hasFrontend ? result.projectInfo.frontendFramework : '无'}`,
+    );
+    lines.push(
+      `- 后端: ${result.projectInfo.hasBackend ? result.projectInfo.backendFramework : '无'}`,
+    );
     lines.push('');
 
     if (result.errors.length > 0) {
@@ -513,48 +501,33 @@ class PromptsMcpServer {
   }
 
   /**
-   * check_requirements: 需求澄清检查
+   * confirm_direction: 方向确认
    */
-  private async handleCheckRequirements(args: any) {
-    const taskDescription = typeof args?.taskDescription === 'string' ? args.taskDescription : '';
-    const result = checkRequirements(taskDescription);
-    const formatted = formatCheckResult(result);
+  private async handleConfirmDirection(args: any) {
+    const goal = typeof args?.goal === 'string' ? args.goal : '';
+    const constraints: string[] = Array.isArray(args?.constraints) ? args.constraints : [];
+    const acceptance = typeof args?.acceptance === 'string' ? args.acceptance : undefined;
+    const context = typeof args?.context === 'string' ? args.context : undefined;
 
-    return {
-      content: [{ type: 'text', text: formatted }],
-    };
-  }
+    const result = confirmDirection({ goal, constraints, acceptance, context });
 
-  /**
-   * make_plan: 生成可行计划
-   */
-  private async handleMakePlan(args: any) {
-    const taskDescription = typeof args?.taskDescription === 'string' ? args.taskDescription : '';
-
-    if (!taskDescription) {
+    if (!result.success) {
       return {
-        content: [{ type: 'text', text: '❌ 请提供任务需求描述。' }],
+        content: [{ type: 'text', text: `❌ 方向确认失败: ${result.error}` }],
         isError: true,
       };
     }
 
-    // 先检查需求是否明确
-    const checkResult = checkRequirements(taskDescription);
-    if (!checkResult.allClear) {
-      return {
-        content: [{
-          type: 'text',
-          text: `❌ **需求尚未完全明确，无法生成计划。**\n\n以下项目不明确: ${checkResult.unclearItems.join('、')}\n\n请先使用 \`check_requirements\` 工具追问澄清，待所有 5 项标准都 ✅ 后再生成计划。`,
-        }],
-        isError: true,
-      };
-    }
-
-    const plan = generatePlan(taskDescription, checkResult);
-    const formatted = formatPlan(plan);
+    const lines: string[] = [
+      '✅ 方向已确认',
+      '',
+      result.content || '',
+      '',
+      `已保存到: ${result.filePath}`,
+    ];
 
     return {
-      content: [{ type: 'text', text: formatted }],
+      content: [{ type: 'text', text: lines.join('\n') }],
     };
   }
 
@@ -577,7 +550,13 @@ class PromptsMcpServer {
 
     try {
       const promptsDir = getPromptsDir();
-      const { entryId, today } = logDialog(promptsDir, { title, request, changes, decisions, todos });
+      const { entryId, today } = logDialog(promptsDir, {
+        title,
+        request,
+        changes,
+        decisions,
+        todos,
+      });
 
       let commitInfo = '';
       if (config.autoCommit && isGitRepo()) {
@@ -591,10 +570,12 @@ class PromptsMcpServer {
       }
 
       return {
-        content: [{
-          type: 'text',
-          text: `✅ 对话日志已记录。\n\n- Entry-${String(entryId).padStart(3, '0')}\n- 日期: ${today}\n- 标题: ${title}\n- todos: 已追加\n- 💡 daily/recent-5/summary-10 将在 session-end 时统一生成${commitInfo}`,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: `✅ 对话日志已记录。\n\n- Entry-${String(entryId).padStart(3, '0')}\n- 日期: ${today}\n- 标题: ${title}\n- todos: 已追加\n- 💡 daily/recent-5/summary-10 将在 session-end 时统一生成${commitInfo}`,
+          },
+        ],
       };
     } catch (error: any) {
       return {
@@ -632,7 +613,12 @@ class PromptsMcpServer {
 
     if (result.success) {
       return {
-        content: [{ type: 'text', text: `✅ 模块记录已更新: ${moduleName}\n\n变更: ${change}\n日期: ${today}` }],
+        content: [
+          {
+            type: 'text',
+            text: `✅ 模块记录已更新: ${moduleName}\n\n变更: ${change}\n日期: ${today}`,
+          },
+        ],
       };
     } else {
       return {
@@ -695,7 +681,8 @@ class PromptsMcpServer {
           const idx = content.indexOf(inProgressMarker);
           if (idx !== -1) {
             const afterMarker = content.indexOf('\n', idx) + 1;
-            content = content.slice(0, afterMarker) + `\n- [ ] ${todo}` + content.slice(afterMarker);
+            content =
+              content.slice(0, afterMarker) + `\n- [ ] ${todo}` + content.slice(afterMarker);
           }
           break;
         }
@@ -779,7 +766,9 @@ class PromptsMcpServer {
     const result = addRule(name, content, category);
     if (result.success) {
       return {
-        content: [{ type: 'text', text: `✅ 规则已添加: ${name}\n\n分类: ${category}\n内容:\n${content}` }],
+        content: [
+          { type: 'text', text: `✅ 规则已添加: ${name}\n\n分类: ${category}\n内容:\n${content}` },
+        ],
       };
     } else {
       return {
@@ -869,10 +858,12 @@ class PromptsMcpServer {
     if (result.success) {
       const status = gitStatus();
       return {
-        content: [{
-          type: 'text',
-          text: `✅ Git 提交成功。\n\n- 提交信息: ${message}\n- Commit: ${result.hash}\n- 分支: ${status?.branch || 'unknown'}`,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: `✅ Git 提交成功。\n\n- 提交信息: ${message}\n- Commit: ${result.hash}\n- 分支: ${status?.branch || 'unknown'}`,
+          },
+        ],
       };
     } else {
       return {
@@ -892,7 +883,12 @@ class PromptsMcpServer {
 
     if (!skillList) {
       return {
-        content: [{ type: 'text', text: '🎭 暂无可用 Skill。\n\n使用 `add_skill` 工具或在 `.github/prompts/skills/` 目录下创建 .md 文件来添加 Skill。' }],
+        content: [
+          {
+            type: 'text',
+            text: '🎭 暂无可用 Skill。\n\n使用 `add_skill` 工具或在 `.github/prompts/skills/` 目录下创建 .md 文件来添加 Skill。',
+          },
+        ],
       };
     }
 
@@ -917,7 +913,16 @@ class PromptsMcpServer {
     const skill = selectSkill(name);
     if (!skill) {
       return {
-        content: [{ type: 'text', text: `❌ Skill 不存在: ${name}\n\n可用 Skill: ${listSkills().map(s => s.meta.name).join(', ') || '无'}` }],
+        content: [
+          {
+            type: 'text',
+            text: `❌ Skill 不存在: ${name}\n\n可用 Skill: ${
+              listSkills()
+                .map((s) => s.meta.name)
+                .join(', ') || '无'
+            }`,
+          },
+        ],
         isError: true,
       };
     }
@@ -949,7 +954,12 @@ class PromptsMcpServer {
 
     if (!name || !description || !identity || !guidelines) {
       return {
-        content: [{ type: 'text', text: '❌ 缺少必填参数。需要：name, description, identity, guidelines。' }],
+        content: [
+          {
+            type: 'text',
+            text: '❌ 缺少必填参数。需要：name, description, identity, guidelines。',
+          },
+        ],
         isError: true,
       };
     }
@@ -957,7 +967,12 @@ class PromptsMcpServer {
     const result = addSkill(name, { icon, description, identity, guidelines });
     if (result.success) {
       return {
-        content: [{ type: 'text', text: `✅ Skill \`${name}\` 已创建。\n\n${icon} ${description}\n\n使用 \`select_skill "${name}"\` 来激活。` }],
+        content: [
+          {
+            type: 'text',
+            text: `✅ Skill \`${name}\` 已创建。\n\n${icon} ${description}\n\n使用 \`select_skill "${name}"\` 来激活。`,
+          },
+        ],
       };
     } else {
       return {
@@ -973,7 +988,8 @@ class PromptsMcpServer {
   private async handleUpdateSkill(args: any) {
     const name = typeof args?.name === 'string' ? args.name : '';
     const learnings = typeof args?.learnings === 'string' ? args.learnings : undefined;
-    const guidelineChanges = typeof args?.guidelineChanges === 'string' ? args.guidelineChanges : undefined;
+    const guidelineChanges =
+      typeof args?.guidelineChanges === 'string' ? args.guidelineChanges : undefined;
     const description = typeof args?.description === 'string' ? args.description : undefined;
 
     if (!name) {
@@ -985,7 +1001,12 @@ class PromptsMcpServer {
 
     if (!learnings && !guidelineChanges && !description) {
       return {
-        content: [{ type: 'text', text: '❌ 请至少提供一个更新项：learnings / guidelineChanges / description。' }],
+        content: [
+          {
+            type: 'text',
+            text: '❌ 请至少提供一个更新项：learnings / guidelineChanges / description。',
+          },
+        ],
         isError: true,
       };
     }

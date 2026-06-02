@@ -2,9 +2,9 @@
 
 /**
  * pmcp-server CLI
- * 
+ *
  * CLI 入口，提供与 MCP Server 相同的功能。
- * 
+ *
  * Usage:
  *   npx tsx src/cli.ts init [--project-root /path/to/project]
  *   npx tsx src/cli.ts bootstrap
@@ -17,11 +17,7 @@
  *   npx tsx src/cli.ts help
  */
 
-import {
-  bootstrap,
-  formatBootstrap,
-  formatBootstrapCompact,
-} from './prompts-loader.js';
+import { bootstrap, formatBootstrap, formatBootstrapCompact } from './prompts-loader.js';
 import {
   getProjectRoot,
   getPromptsDir,
@@ -30,25 +26,10 @@ import {
   getCoreSkillsDir,
   getCustomSkillsDir,
 } from './config.js';
-import {
-  initPrompts,
-} from './prompts-generator.js';
-import {
-  readModuleLog,
-  listModuleLogs,
-  appendModuleLog,
-} from './module-logger.js';
-import {
-  checkRequirements,
-  formatCheckResult,
-  generatePlan,
-  formatPlan,
-} from './requirements-check.js';
-import {
-  listSkills,
-  initGlobalSkills,
-  isGlobalSkillsInitialized,
-} from './skills-manager.js';
+import { initPrompts } from './prompts-generator.js';
+import { readModuleLog, listModuleLogs, appendModuleLog } from './module-logger.js';
+import { confirmDirection, readDirection } from './requirements-check.js';
+import { listSkills, initGlobalSkills, isGlobalSkillsInitialized } from './skills-manager.js';
 import { logDialog } from './dialog-logger.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -121,8 +102,7 @@ Commands:
   bootstrap                       加载上下文（已初始化项目使用）
   refresh-context                 刷新 context.md 技术栈（保留用户编辑）
   advance-stage [--to <stage>]    推进 lifecycle 阶段
-  check <description>             需求澄清检查（5 项标准）
-  plan <description>              生成可行计划（需求需已澄清）
+  confirm --goal <text>            方向确认（AI 追问后保存到 direction.md）
   log --title <t> --request <r>   记录对话日志
   module-log <name> --change <c>  记录模块修改
   module-read <name>              读取模块记录
@@ -174,9 +154,12 @@ async function main(): Promise<void> {
       autoRegister();
 
       const rootIndex = args.indexOf('--project-root');
-      const projectRoot = rootIndex !== -1
-        ? path.resolve(args[rootIndex + 1])
-        : (args[1] && !args[1].startsWith('--') ? path.resolve(args[1]) : getProjectRoot());
+      const projectRoot =
+        rootIndex !== -1
+          ? path.resolve(args[rootIndex + 1])
+          : args[1] && !args[1].startsWith('--')
+            ? path.resolve(args[1])
+            : getProjectRoot();
 
       const assistIndex = args.indexOf('--assistant');
       const assistant = assistIndex !== -1 ? args[assistIndex + 1] : 'claude-code';
@@ -249,7 +232,7 @@ async function main(): Promise<void> {
           if (!fs.existsSync(skillsDest)) {
             fs.mkdirSync(skillsDest, { recursive: true });
           }
-          const skillFiles = fs.readdirSync(skillsSrc).filter(f => f.endsWith('.md'));
+          const skillFiles = fs.readdirSync(skillsSrc).filter((f) => f.endsWith('.md'));
           for (const f of skillFiles) {
             const destFile = path.join(skillsDest, f);
             if (!fs.existsSync(destFile)) {
@@ -266,7 +249,11 @@ async function main(): Promise<void> {
 
           let existingSettings: any = {};
           if (fs.existsSync(settingsPath)) {
-            try { existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); } catch { /* ignore */ }
+            try {
+              existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+            } catch {
+              /* ignore */
+            }
           }
 
           const hookBase = '.prompts-mcp';
@@ -274,53 +261,76 @@ async function main(): Promise<void> {
             ...existingSettings,
             hooks: {
               ...(existingSettings.hooks || {}),
-              UserPromptSubmit: [{
-                hooks: [{
-                  type: 'command',
-                  command: `node ${hookBase}/capture-prompt.cjs`,
-                  timeout: 5
-                }]
-              }],
-              PreToolUse: [{
-                matcher: 'Write|Edit',
-                hooks: [{
-                  type: 'command',
-                  command: `node ${hookBase}/pre-tool-use.cjs`
-                }]
-              }],
-              SessionStart: [{
-                matcher: '*',
-                hooks: [{
-                  type: 'command',
-                  command: `node ${hookBase}/session-start.cjs`,
-                  statusMessage: 'Loading project context...'
-                }]
-              }],
-              PostToolUse: [{
-                matcher: 'Write|Edit',
-                hooks: [{
-                  type: 'command',
-                  command: `node ${hookBase}/post-write-scan.cjs`,
-                  timeout: 10
-                }]
-              }, {
-                matcher: '*',
-                hooks: [{
-                  type: 'command',
-                  command: `node ${hookBase}/normalize-log.cjs`,
-                  timeout: 5
-                }]
-              }],
-              SessionEnd: [{
-                matcher: '*',
-                hooks: [{
-                  type: 'command',
-                  command: `node ${hookBase}/session-end.cjs`,
-                  statusMessage: 'Finalizing session...',
-                  timeout: 30
-                }]
-              }]
-            }
+              UserPromptSubmit: [
+                {
+                  hooks: [
+                    {
+                      type: 'command',
+                      command: `node ${hookBase}/capture-prompt.cjs`,
+                      timeout: 5,
+                    },
+                  ],
+                },
+              ],
+              PreToolUse: [
+                {
+                  matcher: 'Write|Edit',
+                  hooks: [
+                    {
+                      type: 'command',
+                      command: `node ${hookBase}/pre-tool-use.cjs`,
+                    },
+                  ],
+                },
+              ],
+              SessionStart: [
+                {
+                  matcher: '*',
+                  hooks: [
+                    {
+                      type: 'command',
+                      command: `node ${hookBase}/session-start.cjs`,
+                      statusMessage: 'Loading project context...',
+                    },
+                  ],
+                },
+              ],
+              PostToolUse: [
+                {
+                  matcher: 'Write|Edit',
+                  hooks: [
+                    {
+                      type: 'command',
+                      command: `node ${hookBase}/post-write-scan.cjs`,
+                      timeout: 10,
+                    },
+                  ],
+                },
+                {
+                  matcher: '*',
+                  hooks: [
+                    {
+                      type: 'command',
+                      command: `node ${hookBase}/normalize-log.cjs`,
+                      timeout: 5,
+                    },
+                  ],
+                },
+              ],
+              SessionEnd: [
+                {
+                  matcher: '*',
+                  hooks: [
+                    {
+                      type: 'command',
+                      command: `node ${hookBase}/session-end.cjs`,
+                      statusMessage: 'Finalizing session...',
+                      timeout: 30,
+                    },
+                  ],
+                },
+              ],
+            },
           };
 
           fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
@@ -366,7 +376,7 @@ async function main(): Promise<void> {
           if (!fs.existsSync(skillsDest)) {
             fs.mkdirSync(skillsDest, { recursive: true });
           }
-          const skillFiles = fs.readdirSync(skillsSrc).filter(f => f.endsWith('.md'));
+          const skillFiles = fs.readdirSync(skillsSrc).filter((f) => f.endsWith('.md'));
           let synced = 0;
           for (const f of skillFiles) {
             const destFile = path.join(skillsDest, f);
@@ -422,19 +432,16 @@ async function main(): Promise<void> {
         // 展示当前阶段引导
         const stage = bootstrapResult.taskState?.stage || 'understand';
         const stageGuide: Record<string, { label: string; next: string }> = {
-          // New 3-stage lifecycle
-          'understand': { label: '🔍 问题探索', next: '描述你遇到的问题 → AI 澄清 → 确认方向 → ECC 接管' },
-          'executing': { label: '⚡ ECC 执行中', next: 'ECC agents 自动编排执行 → 完成后自动进入总结' },
-          'closing': { label: '📝 总结归档', next: '确认完成情况 → git commit → 归档' },
-          // Legacy stages
-          'spec-pending': { label: '⏳ 需求待签字', next: '请描述需求 → analyst 生成 focus-spec → 签字' },
-          'confirmed': { label: '✅ 需求已签字', next: '输入「拆任务」进入任务拆分阶段' },
-          'task-planning': { label: '📋 任务拆分中', next: 'PMCP 引导拆分子任务 → 确认后选择 ECC agent 开发' },
-          'developing': { label: '🔨 开发中', next: 'ECC agent 执行开发 → 完成后输入 /code-review' },
-          'reviewing': { label: '🔍 审查中', next: 'code-reviewer + security-reviewer 检查 → 通过后等待确认' },
-          'user-confirming': { label: '👤 等待用户确认', next: '输入「通过」确认，或描述问题回到开发' },
-          'completed': { label: '🎉 开发完成', next: 'git commit + /learn → 归档' },
-          'incomplete': { label: '⚠️ 上次未完成', next: '输入「继续」恢复，或「新需求」归档后开始新任务' },
+          understand: {
+            label: '🔍 问题探索',
+            next: '描述你遇到的问题 → AI 澄清 → 确认方向 → ECC 接管',
+          },
+          confirmed: { label: '✅ 方向已确认', next: 'ECC 接管执行' },
+          executing: {
+            label: '⚡ ECC 执行中',
+            next: 'ECC agents 自动编排执行 → 完成后自动进入总结',
+          },
+          closing: { label: '📝 总结归档', next: '确认完成情况 → git commit → 归档' },
         };
         const guide = stageGuide[stage];
         if (guide) {
@@ -447,7 +454,7 @@ async function main(): Promise<void> {
       } else {
         // 独立模式：展示角色选择
         const skills = listSkills();
-        const maxNameLen = Math.max(...skills.map(s => s.meta.name.length));
+        const maxNameLen = Math.max(...skills.map((s) => s.meta.name.length));
         console.log('\n[4/4] Skill 选择\n');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('  请选择角色（说出角色名即可）：');
@@ -467,9 +474,12 @@ async function main(): Promise<void> {
 
     case 'refresh-context': {
       const rootIndex = args.indexOf('--project-root');
-      const projectRoot = rootIndex !== -1
-        ? path.resolve(args[rootIndex + 1])
-        : (args[1] && !args[1].startsWith('--') ? path.resolve(args[1]) : getProjectRoot());
+      const projectRoot =
+        rootIndex !== -1
+          ? path.resolve(args[rootIndex + 1])
+          : args[1] && !args[1].startsWith('--')
+            ? path.resolve(args[1])
+            : getProjectRoot();
 
       setProjectRoot(projectRoot);
 
@@ -486,9 +496,12 @@ async function main(): Promise<void> {
 
     case 'advance-stage': {
       const rootIndex = args.indexOf('--project-root');
-      const projectRoot = rootIndex !== -1
-        ? path.resolve(args[rootIndex + 1])
-        : (args[1] && !args[1].startsWith('--') ? path.resolve(args[1]) : getProjectRoot());
+      const projectRoot =
+        rootIndex !== -1
+          ? path.resolve(args[rootIndex + 1])
+          : args[1] && !args[1].startsWith('--')
+            ? path.resolve(args[1])
+            : getProjectRoot();
 
       setProjectRoot(projectRoot);
 
@@ -498,19 +511,21 @@ async function main(): Promise<void> {
       const promptsDir = getPromptsDir();
       const statePath = path.join(promptsDir, 'task-state.json');
 
-      let state: any = { stage: 'spec-pending', history: [] };
+      let state: any = { stage: 'understand', history: [] };
       try {
         if (fs.existsSync(statePath)) {
           state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
         }
-      } catch { /* use default */ }
+      } catch {
+        /* use default */
+      }
 
-      const validStages = ['understand', 'executing', 'closing', 'archived', 'spec-pending', 'confirmed', 'task-planning', 'developing', 'reviewing', 'user-confirming', 'completed'];
+      const validStages = ['understand', 'confirmed', 'executing', 'closing', 'archived'];
       const currentStage = state.stage || 'understand';
 
       if (!targetStage) {
         // 自动推进到下一阶段
-        const stageOrder = ['understand', 'executing', 'closing', 'archived'];
+        const stageOrder = ['understand', 'confirmed', 'executing', 'closing', 'archived'];
         const currentIndex = stageOrder.indexOf(currentStage);
         if (currentIndex === -1 || currentIndex >= stageOrder.length - 1) {
           console.log(`当前阶段: ${currentStage}（无法自动推进）`);
@@ -520,13 +535,13 @@ async function main(): Promise<void> {
         }
         const nextStage = stageOrder[currentIndex + 1];
 
-        // confirmed 阶段需要计算 focus-spec hash
+        // confirmed 阶段需要计算 direction hash
         if (nextStage === 'confirmed') {
-          const specPath = path.join(promptsDir, 'focus-spec.md');
-          if (fs.existsSync(specPath)) {
+          const directionPath = path.join(promptsDir, 'direction.md');
+          if (fs.existsSync(directionPath)) {
             const crypto = await import('node:crypto');
-            const specContent = fs.readFileSync(specPath, 'utf-8');
-            state.contractHash = crypto.createHash('sha256').update(specContent).digest('hex');
+            const directionContent = fs.readFileSync(directionPath, 'utf-8');
+            state.contractHash = crypto.createHash('sha256').update(directionContent).digest('hex');
           }
         }
 
@@ -535,7 +550,7 @@ async function main(): Promise<void> {
         state.history.unshift({
           stage: nextStage,
           entered: new Date().toISOString(),
-          note: `pmcp advance-stage 自动推进: ${currentStage} → ${nextStage}`
+          note: `pmcp advance-stage 自动推进: ${currentStage} → ${nextStage}`,
         });
 
         fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n', 'utf-8');
@@ -553,13 +568,13 @@ async function main(): Promise<void> {
           break;
         }
 
-        // confirmed 阶段需要计算 focus-spec hash
+        // confirmed 阶段需要计算 direction hash
         if (targetStage === 'confirmed') {
-          const specPath = path.join(promptsDir, 'focus-spec.md');
-          if (fs.existsSync(specPath)) {
+          const directionPath = path.join(promptsDir, 'direction.md');
+          if (fs.existsSync(directionPath)) {
             const crypto = await import('node:crypto');
-            const specContent = fs.readFileSync(specPath, 'utf-8');
-            state.contractHash = crypto.createHash('sha256').update(specContent).digest('hex');
+            const directionContent = fs.readFileSync(directionPath, 'utf-8');
+            state.contractHash = crypto.createHash('sha256').update(directionContent).digest('hex');
           }
         }
 
@@ -568,7 +583,7 @@ async function main(): Promise<void> {
         state.history.unshift({
           stage: targetStage,
           entered: new Date().toISOString(),
-          note: `pmcp advance-stage 手动转换: ${currentStage} → ${targetStage}`
+          note: `pmcp advance-stage 手动转换: ${currentStage} → ${targetStage}`,
         });
 
         fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n', 'utf-8');
@@ -586,9 +601,12 @@ async function main(): Promise<void> {
       //   pmcp setup                    -> 当前目录
       //   pmcp setup /path/to/project   -> 位置参数
       //   pmcp setup --project-root /path -> 命名参数
-      const projectRoot = rootIndex !== -1
-        ? path.resolve(args[rootIndex + 1])
-        : (args[1] && !args[1].startsWith('--') ? path.resolve(args[1]) : getProjectRoot());
+      const projectRoot =
+        rootIndex !== -1
+          ? path.resolve(args[rootIndex + 1])
+          : args[1] && !args[1].startsWith('--')
+            ? path.resolve(args[1])
+            : getProjectRoot();
 
       const assistIndex = args.indexOf('--assistant');
       const assistant = assistIndex !== -1 ? args[assistIndex + 1] : 'claude-code';
@@ -651,7 +669,7 @@ async function main(): Promise<void> {
         if (!fs.existsSync(skillsDest)) {
           fs.mkdirSync(skillsDest, { recursive: true });
         }
-        const skillFiles = fs.readdirSync(skillsSrc).filter(f => f.endsWith('.md'));
+        const skillFiles = fs.readdirSync(skillsSrc).filter((f) => f.endsWith('.md'));
         for (const f of skillFiles) {
           const destFile = path.join(skillsDest, f);
           if (!fs.existsSync(destFile)) {
@@ -700,7 +718,9 @@ async function main(): Promise<void> {
         if (fs.existsSync(settingsPath)) {
           try {
             existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
 
         // hooks 使用相对路径（相对于项目根目录）
@@ -709,53 +729,76 @@ async function main(): Promise<void> {
           ...existingSettings,
           hooks: {
             ...(existingSettings.hooks || {}),
-            UserPromptSubmit: [{
-              hooks: [{
-                type: 'command',
-                command: `node ${hookBase}/capture-prompt.cjs`,
-                timeout: 5
-              }]
-            }],
-            PreToolUse: [{
-              matcher: 'Write|Edit',
-              hooks: [{
-                type: 'command',
-                command: `node ${hookBase}/pre-tool-use.cjs`
-              }]
-            }],
-            SessionStart: [{
-              matcher: '*',
-              hooks: [{
-                type: 'command',
-                command: `node ${hookBase}/session-start.cjs`,
-                statusMessage: 'Loading project context...'
-              }]
-            }],
-            PostToolUse: [{
-              matcher: 'Write|Edit',
-              hooks: [{
-                type: 'command',
-                command: `node ${hookBase}/post-write-scan.cjs`,
-                timeout: 10
-              }]
-            }, {
-              matcher: '*',
-              hooks: [{
-                type: 'command',
-                command: `node ${hookBase}/normalize-log.cjs`,
-                timeout: 5
-              }]
-            }],
-            SessionEnd: [{
-              matcher: '*',
-              hooks: [{
-                type: 'command',
-                command: `node ${hookBase}/session-end.cjs`,
-                statusMessage: 'Finalizing session...',
-                timeout: 30
-              }]
-            }]
-          }
+            UserPromptSubmit: [
+              {
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `node ${hookBase}/capture-prompt.cjs`,
+                    timeout: 5,
+                  },
+                ],
+              },
+            ],
+            PreToolUse: [
+              {
+                matcher: 'Write|Edit',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `node ${hookBase}/pre-tool-use.cjs`,
+                  },
+                ],
+              },
+            ],
+            SessionStart: [
+              {
+                matcher: '*',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `node ${hookBase}/session-start.cjs`,
+                    statusMessage: 'Loading project context...',
+                  },
+                ],
+              },
+            ],
+            PostToolUse: [
+              {
+                matcher: 'Write|Edit',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `node ${hookBase}/post-write-scan.cjs`,
+                    timeout: 10,
+                  },
+                ],
+              },
+              {
+                matcher: '*',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `node ${hookBase}/normalize-log.cjs`,
+                    timeout: 5,
+                  },
+                ],
+              },
+            ],
+            SessionEnd: [
+              {
+                matcher: '*',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `node ${hookBase}/session-end.cjs`,
+                    statusMessage: 'Finalizing session...',
+                    timeout: 30,
+                  },
+                ],
+              },
+            ],
+          },
         };
 
         fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
@@ -910,13 +953,21 @@ async function main(): Promise<void> {
       if (assistant === 'claude-code') {
         console.log('Claude Code hooks are configured in .claude/settings.json.');
         console.log('Auto-logging will start on next session.');
-        console.log('TIP: Use "setup" command instead of "init" for full automation (MCP + Skills).');
+        console.log(
+          'TIP: Use "setup" command instead of "init" for full automation (MCP + Skills).',
+        );
       } else if (assistant === 'cline') {
-        console.log('Configure Cline hooks using the template in .clinerules/hooks/prompts-mcp.json.');
+        console.log(
+          'Configure Cline hooks using the template in .clinerules/hooks/prompts-mcp.json.',
+        );
         console.log('See: https://docs.cline.bot/customization/hooks');
       } else {
-        console.log(`Rules file created. The AI will be instructed to use MCP tools at lifecycle points.`);
-        console.log('Make sure the prompts-mcp MCP server is configured in your assistant settings.');
+        console.log(
+          `Rules file created. The AI will be instructed to use MCP tools at lifecycle points.`,
+        );
+        console.log(
+          'Make sure the prompts-mcp MCP server is configured in your assistant settings.',
+        );
       }
       console.log('');
       break;
@@ -929,30 +980,47 @@ async function main(): Promise<void> {
       break;
     }
 
-    case 'check': {
-      const taskDescription = args.slice(1).join(' ') || '';
-      printSeparator('需求澄清检查');
-      const result = checkRequirements(taskDescription);
-      console.log(formatCheckResult(result));
-      break;
-    }
+    case 'confirm': {
+      const goalIndex = args.indexOf('--goal');
+      const acceptanceIndex = args.indexOf('--acceptance');
+      const contextIndex = args.indexOf('--context');
 
-    case 'plan': {
-      const taskDescription = args.slice(1).join(' ') || '';
-      if (!taskDescription) {
-        console.error('❌ 请提供任务需求描述。');
+      const goal =
+        goalIndex !== -1
+          ? args[goalIndex + 1]
+          : args[1] && !args[1].startsWith('--')
+            ? args[1]
+            : '';
+      const acceptance = acceptanceIndex !== -1 ? args[acceptanceIndex + 1] : undefined;
+      const context = contextIndex !== -1 ? args[contextIndex + 1] : undefined;
+
+      // 收集 --constraint 参数（可多个）
+      const constraints: string[] = [];
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === '--constraint' && args[i + 1]) {
+          constraints.push(args[i + 1]);
+        }
+      }
+
+      if (!goal) {
+        console.error('❌ 请提供目标描述。');
+        console.error(
+          '用法: pmcp confirm --goal "目标" [--constraint "约束"] [--acceptance "验收"]',
+        );
         process.exit(1);
       }
 
-      const checkResult = checkRequirements(taskDescription);
-      if (!checkResult.allClear) {
-        console.error(`❌ 需求尚未完全明确，无法生成计划。\n\n不明确项: ${checkResult.unclearItems.join('、')}\n\n请先使用 check 命令追问澄清。`);
+      printSeparator('方向确认');
+      const result = confirmDirection({ goal, constraints, acceptance, context });
+
+      if (result.success) {
+        console.log('✅ 方向已确认\n');
+        console.log(result.content);
+        console.log(`\n已保存到: ${result.filePath}`);
+      } else {
+        console.error(`❌ 确认失败: ${result.error}`);
         process.exit(1);
       }
-
-      printSeparator('生成执行计划');
-      const plan = generatePlan(taskDescription, checkResult);
-      console.log(formatPlan(plan));
       break;
     }
 
@@ -997,7 +1065,13 @@ async function main(): Promise<void> {
 
       printSeparator('记录对话日志');
       const promptsDir = getPromptsDir();
-      const { entryId, today } = logDialog(promptsDir, { title, request, changes, decisions, todos });
+      const { entryId, today } = logDialog(promptsDir, {
+        title,
+        request,
+        changes,
+        decisions,
+        todos,
+      });
 
       if (todos.length > 0) console.log('✅ todos.md 已追加');
       console.log(`\n📝 Entry-${String(entryId).padStart(3, '0')} (${today}): ${title}`);
@@ -1040,7 +1114,12 @@ async function main(): Promise<void> {
 
       const projectRoot = getProjectRoot();
       const today = new Date().toISOString().slice(0, 10);
-      const result = appendModuleLog(projectRoot, moduleName, { date: today, change, files, decisions });
+      const result = appendModuleLog(projectRoot, moduleName, {
+        date: today,
+        change,
+        files,
+        decisions,
+      });
 
       if (result.success) {
         console.log(`✅ 模块记录已更新: ${moduleName}`);
@@ -1201,7 +1280,9 @@ Examples:
               } else if (s.filePath.includes('.pmcp/skills/custom')) {
                 source = 'custom';
               }
-              console.log(`| ${i + 1} | **${s.meta.name}** | ${s.meta.icon} | ${s.meta.description} | v${s.meta.version} | ${source} |`);
+              console.log(
+                `| ${i + 1} | **${s.meta.name}** | ${s.meta.icon} | ${s.meta.description} | v${s.meta.version} | ${source} |`,
+              );
             });
           }
 
@@ -1297,7 +1378,7 @@ Examples:
 
           // 同步 core skill
           if (fs.existsSync(coreDir)) {
-            const coreFiles = fs.readdirSync(coreDir).filter(f => f.endsWith('.md'));
+            const coreFiles = fs.readdirSync(coreDir).filter((f) => f.endsWith('.md'));
             for (const f of coreFiles) {
               const dest = path.join(projectSkillsDir, f);
               if (!fs.existsSync(dest) || forceSync) {
@@ -1310,7 +1391,7 @@ Examples:
 
           // 同步 custom skill
           if (fs.existsSync(customDir)) {
-            const customFiles = fs.readdirSync(customDir).filter(f => f.endsWith('.md'));
+            const customFiles = fs.readdirSync(customDir).filter((f) => f.endsWith('.md'));
             for (const f of customFiles) {
               const dest = path.join(projectSkillsDir, f);
               if (!fs.existsSync(dest) || forceSync) {
@@ -1349,7 +1430,7 @@ Examples:
           }
 
           const customDir = getCustomSkillsDir();
-          const projectFiles = fs.readdirSync(projectSkillsDir).filter(f => f.endsWith('.md'));
+          const projectFiles = fs.readdirSync(projectSkillsDir).filter((f) => f.endsWith('.md'));
           let exported = 0;
 
           for (const f of projectFiles) {
@@ -1439,7 +1520,7 @@ Examples:
 
       const promptsDir = getPromptsDir();
       const statePath = path.join(promptsDir, 'task-state.json');
-      const specPath = path.join(promptsDir, 'focus-spec.md');
+      const directionPath = path.join(promptsDir, 'direction.md');
 
       if (!fs.existsSync(statePath)) {
         console.error('❌ task-state.json 不存在，请先运行 pmcp start 初始化项目。');
@@ -1464,12 +1545,15 @@ Examples:
       state.stage = 'understand';
       fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
 
-      if (fs.existsSync(specPath)) {
-        fs.writeFileSync(specPath, '> status: expired\n\nfocus-spec 已过期，请通过对话式探索重新生成 direction.md。\n');
+      if (fs.existsSync(directionPath)) {
+        fs.writeFileSync(
+          directionPath,
+          '> status: expired\n\ndirection.md 已过期，请通过对话式探索重新确认方向。\n',
+        );
       }
 
       console.log('✅ 状态已重置为 understand（问题探索）。');
-      console.log('   请描述你遇到的问题，AI 会帮你澄清并生成 direction.md。');
+      console.log('   请描述你遇到的问题，AI 会帮你澄清并确认方向。');
       break;
     }
 
