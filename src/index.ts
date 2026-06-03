@@ -47,6 +47,16 @@ import {
 } from './skills-manager.js';
 import { gitAutoCommit, gitStatus, isGitRepo } from './git-utils.js';
 import { logDialog } from './dialog-logger.js';
+import {
+  scanAll,
+  recommendTools,
+  listScenes,
+  detectScene,
+  generateOnboarding,
+  generateAllOnboarding,
+} from './tool-scanner.js';
+import { scanSecrets } from './secret-scanner.js';
+import { publish, formatPublishResult } from './publisher.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -382,6 +392,104 @@ class PromptsMcpServer {
             required: ['name', 'description', 'identity', 'guidelines'],
           },
         },
+        {
+          name: 'scan_tools',
+          description:
+            '【工具扫描】扫描项目已安装的工具（npm 依赖、MCP Server），输出能力清单和使用建议。帮助用户快速了解可用工具。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectRoot: {
+                type: 'string',
+                description: '项目根目录（可选，不传则使用当前项目）',
+              },
+            },
+          },
+        },
+        {
+          name: 'recommend_tools',
+          description:
+            '【场景推荐】根据当前开发场景（coding/testing/debugging/reviewing 等），推荐应使用的工具和操作建议。也可自动检测场景。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              scene: {
+                type: 'string',
+                description:
+                  '开发场景：coding/testing/debugging/reviewing/refactoring/deploying/documenting/exploring/planning',
+              },
+              input: {
+                type: 'string',
+                description: '用户输入文本（可选，用于自动检测场景）',
+              },
+            },
+          },
+        },
+        {
+          name: 'list_scenes',
+          description: '【场景列表】列出所有可用的开发场景及推荐工具。',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'onboard_tool',
+          description:
+            '【工具引导】为指定工具生成 3 步快速上手引导（是什么 → 用一次 → 验证效果）。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              toolName: {
+                type: 'string',
+                description: '工具名称（如 codegraph、eslint、vitest）',
+              },
+            },
+            required: ['toolName'],
+          },
+        },
+        {
+          name: 'onboard_all',
+          description: '【全部引导】为所有已安装工具生成引导手册概览。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectRoot: {
+                type: 'string',
+                description: '项目根目录（可选）',
+              },
+            },
+          },
+        },
+        {
+          name: 'audit_secrets',
+          description:
+            '【隐私审计】扫描代码中的密钥、Token、密码等隐私信息。发布前必须调用，有 critical/high 发现时拦截发布。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectRoot: {
+                type: 'string',
+                description: '项目根目录（可选）',
+              },
+            },
+          },
+        },
+        {
+          name: 'safe_publish',
+          description:
+            '【安全发布】一键完成隐私审计 + 版本 bump + npm publish + git push + npm link + README 更新。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              npmToken: { type: 'string', description: 'npm Access Token' },
+              bump: { type: 'string', description: '版本号类型: patch/minor/major（默认 patch）' },
+              version: { type: 'string', description: '指定版本号（覆盖 bump）' },
+              message: { type: 'string', description: 'git commit message' },
+              skipAudit: { type: 'boolean', description: '跳过隐私审计（不推荐）' },
+            },
+          },
+        },
       ],
     }));
 
@@ -423,6 +531,20 @@ class PromptsMcpServer {
             return this.handleUpdateSkill(args);
           case 'add_skill':
             return this.handleAddSkill(args);
+          case 'scan_tools':
+            return this.handleScanTools(args);
+          case 'recommend_tools':
+            return this.handleRecommendTools(args);
+          case 'list_scenes':
+            return this.handleListScenes();
+          case 'onboard_tool':
+            return this.handleOnboardTool(args);
+          case 'onboard_all':
+            return this.handleOnboardAll(args);
+          case 'audit_secrets':
+            return this.handleAuditSecrets(args);
+          case 'safe_publish':
+            return this.handleSafePublish(args);
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
@@ -1024,6 +1146,125 @@ class PromptsMcpServer {
     } else {
       return {
         content: [{ type: 'text', text: `❌ 更新 Skill 失败: ${result.error}` }],
+        isError: true,
+      };
+    }
+  }
+
+  /**
+   * scan_tools: 工具能力扫描
+   */
+  private async handleScanTools(args: any) {
+    const projectRoot = typeof args?.projectRoot === 'string' ? args.projectRoot : undefined;
+
+    try {
+      const result = scanAll(projectRoot);
+      return {
+        content: [{ type: 'text', text: result.summary }],
+      };
+    } catch (error: any) {
+      return {
+        content: [{ type: 'text', text: `❌ 工具扫描失败: ${error.message || error}` }],
+        isError: true,
+      };
+    }
+  }
+
+  /**
+   * recommend_tools: 场景推荐工具
+   */
+  private async handleRecommendTools(args: any) {
+    const sceneInput = typeof args?.scene === 'string' ? args.scene : '';
+    const userInput = typeof args?.input === 'string' ? args.input : '';
+
+    // 优先使用指定场景，否则从用户输入自动检测
+    let scene = sceneInput || detectScene(userInput);
+
+    if (!scene) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: '❌ 无法确定场景。请指定 scene 参数（coding/testing/debugging/reviewing/refactoring/deploying/documenting/exploring/planning）或提供 input 文本。',
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const result = recommendTools(scene);
+    return {
+      content: [{ type: 'text', text: result }],
+    };
+  }
+
+  /**
+   * list_scenes: 列出所有场景
+   */
+  private async handleListScenes() {
+    const result = listScenes();
+    return {
+      content: [{ type: 'text', text: result }],
+    };
+  }
+
+  private async handleOnboardTool(args: any) {
+    const toolName = typeof args?.toolName === 'string' ? args.toolName : '';
+    if (!toolName) {
+      return {
+        content: [{ type: 'text', text: '❌ "toolName" 是必填参数。' }],
+        isError: true,
+      };
+    }
+    const result = generateOnboarding(toolName);
+    return {
+      content: [{ type: 'text', text: result }],
+    };
+  }
+
+  private async handleOnboardAll(args: any) {
+    const projectRoot = typeof args?.projectRoot === 'string' ? args.projectRoot : undefined;
+    const result = generateAllOnboarding(projectRoot);
+    return {
+      content: [{ type: 'text', text: result }],
+    };
+  }
+
+  private async handleAuditSecrets(args: any) {
+    const projectRoot = typeof args?.projectRoot === 'string' ? args.projectRoot : undefined;
+    try {
+      const result = scanSecrets(projectRoot);
+      return {
+        content: [{ type: 'text', text: result.summary }],
+        isError: !result.success,
+      };
+    } catch (error: any) {
+      return {
+        content: [{ type: 'text', text: `❌ 隐私审计失败: ${error.message || error}` }],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleSafePublish(args: any) {
+    const root = getProjectRoot();
+    const options = {
+      npmToken: typeof args?.npmToken === 'string' ? args.npmToken : undefined,
+      bump: typeof args?.bump === 'string' ? (args.bump as any) : undefined,
+      version: typeof args?.version === 'string' ? args.version : undefined,
+      message: typeof args?.message === 'string' ? args.message : undefined,
+      skipAudit: args?.skipAudit === true,
+    };
+
+    try {
+      const result = publish(root, options);
+      return {
+        content: [{ type: 'text', text: formatPublishResult(result) }],
+        isError: !result.success,
+      };
+    } catch (error: any) {
+      return {
+        content: [{ type: 'text', text: `❌ 发布失败: ${error.message || error}` }],
         isError: true,
       };
     }

@@ -1,4 +1,3 @@
-> confirmed: 2026-06-02T17:23:22.655Z
+> status: expired
 
-## 目标
-测试目标
+direction.md 已过期，请通过对话式探索重新确认方向。

@@ -109,6 +109,12 @@ Commands:
   module-list                     列出所有模块记录
   todos add|complete|remove <t>   更新待办事项
   skill <subcommand>              Skill 管理（见下文）
+  tools                           扫描项目已安装工具，输出能力清单
+  scenes                          列出所有开发场景及推荐工具
+  recommend <scene>               推荐指定场景下应使用的工具
+  audit                           发布前隐私审计（扫描密钥/Token/密码）
+  publish [--bump patch|minor|major] [--token <npm_token>]
+                                  一键发布：审计 + 版本 bump + npm + git + link
   register                        注册 pmcp 为用户级已知命令（~/.claude/CLAUDE.md）
   unregister                      取消注册
   help                            显示帮助
@@ -1554,6 +1560,78 @@ Examples:
 
       console.log('✅ 状态已重置为 understand（问题探索）。');
       console.log('   请描述你遇到的问题，AI 会帮你澄清并确认方向。');
+      break;
+    }
+
+    case 'tools': {
+      const rootIndex = args.indexOf('--project-root');
+      const projectRoot =
+        rootIndex !== -1
+          ? path.resolve(args[rootIndex + 1])
+          : args[1] && !args[1].startsWith('--')
+            ? path.resolve(args[1])
+            : getProjectRoot();
+
+      const { scanAll } = await import('./tool-scanner.js');
+      const result = scanAll(projectRoot);
+      console.log(result.summary);
+      break;
+    }
+
+    case 'scenes': {
+      const { listScenes } = await import('./tool-scanner.js');
+      console.log(listScenes());
+      break;
+    }
+
+    case 'recommend': {
+      const scene = args[1]?.toLowerCase();
+      if (!scene) {
+        console.error('用法: pmcp recommend <scene>');
+        console.error(
+          '场景: coding / testing / debugging / reviewing / refactoring / deploying / documenting / exploring / planning',
+        );
+        process.exit(1);
+      }
+      const { recommendTools } = await import('./tool-scanner.js');
+      console.log(recommendTools(scene as any));
+      break;
+    }
+
+    case 'audit': {
+      const rootIndex = args.indexOf('--project-root');
+      const projectRoot =
+        rootIndex !== -1
+          ? path.resolve(args[rootIndex + 1])
+          : args[1] && !args[1].startsWith('--')
+            ? path.resolve(args[1])
+            : getProjectRoot();
+
+      const { scanSecrets } = await import('./secret-scanner.js');
+      const result = scanSecrets(projectRoot);
+      console.log(result.summary);
+      if (!result.success) {
+        process.exit(1);
+      }
+      break;
+    }
+
+    case 'publish': {
+      const root = getProjectRoot();
+      const bumpIdx = args.indexOf('--bump');
+      const bump = bumpIdx !== -1 ? (args[bumpIdx + 1] as any) : 'patch';
+      const tokenIdx = args.indexOf('--token');
+      const npmToken = tokenIdx !== -1 ? args[tokenIdx + 1] : undefined;
+      const msgIdx = args.indexOf('--message');
+      const message = msgIdx !== -1 ? args[msgIdx + 1] : undefined;
+      const skipAudit = args.includes('--skip-audit');
+
+      const { publish, formatPublishResult } = await import('./publisher.js');
+      const result = publish(root, { bump, npmToken, message, skipAudit });
+      console.log(formatPublishResult(result));
+      if (!result.success) {
+        process.exit(1);
+      }
       break;
     }
 
