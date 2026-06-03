@@ -3,12 +3,6 @@
 > 由 session-end hook 自动生成，勿手动编辑。
 > 保留最近 5 条对话。
 
-## 对话-809
-
-- **时间**: 2026-06-02 13:48:48
-- **用户问题**: continue
-- **本轮改动**: (无)
-- **结果**: 对话（无代码修改）
 ## 对话-813
 
 - **时间**: 2026-06-02 14:34:47
@@ -31,5 +25,11 @@
 
 - **时间**: 2026-06-02 16:40:06
 - **用户问题**: Diagnostics Currently running: npm-global (2.1.160) Commit: de93a1b1a590 Platform: win32-x64 Path: C:\admin\Config\nvm\v22.12.0\node_modules\@anthropic-ai\claude-code\bin\claude.exe Config install met
+- **本轮改动**: (无)
+- **结果**: 对话（无代码修改）
+## 对话-836
+
+- **时间**: 2026-06-02 17:49:49
+- **用户问题**: pmcp start
 - **本轮改动**: (无)
 - **结果**: 对话（无代码修改）
