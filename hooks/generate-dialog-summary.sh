@@ -1,7 +1,7 @@
 #!/bin/bash
-# 对话总结生成器（assistant-agnostic）
-# 读取 session 的用户消息 + git diff，生成中文对话级总结
-# 同时写入 daily/、recent-5.md、summary-10.md
+# 会话摘要生成器（assistant-agnostic）
+# 读取 session 的用户消息 + git diff，生成决策级摘要
+# 写入 sessions.md 和 state.md
 #
 # 环境变量（由 adapter 设置）：
 #   PROJECT_DIR     — 项目根目录（默认: pwd）
@@ -27,26 +27,10 @@ const { execSync } = require('child_process');
 const PROJECT_DIR = process.env.PROJECT_DIR;
 const PROMPTS_DIR = process.env.PROMPTS_DIR;
 const SESSIONS_DIR = process.env.SESSIONS_DIR;
-const DIALOGS_DIR = process.env.DIALOGS_DIR;
 const SESSION_ID = process.env.SESSION_ID;
 
-const STATE_FILE = path.join(PROMPTS_DIR, 'log-state.json');
-const RECENT_FILE = path.join(PROMPTS_DIR, 'recent-5.md');
-const SUMMARY_FILE = path.join(PROMPTS_DIR, 'summary-10.md');
-
-// ─── 加载状态 ───────────────────────────────────────────────────────
-let state = {
-  nextEntryId: 1,
-  windowId: 'W-0001',
-  windowCount: 0,
-  lastProcessedDate: '',
-  lastProcessedCount: 0
-};
-try {
-  if (fs.existsSync(STATE_FILE)) {
-    Object.assign(state, JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')));
-  }
-} catch {}
+const SESSIONS_FILE = path.join(PROMPTS_DIR, 'sessions.md');
+const STATE_FILE = path.join(PROMPTS_DIR, 'state.md');
 
 // ─── 读取用户消息 ─────────────────────────────────────────────────────
 const promptFile = path.join(SESSIONS_DIR, SESSION_ID + '.prompts.jsonl');
@@ -95,8 +79,7 @@ try {
   }
 } catch {}
 
-// ─── 生成中文对话总结 ──────────────────────────────────────────────────
-// 提取用户问题（取第一条有意义的消息，去除寒暄）
+// ─── 生成决策级摘要 ──────────────────────────────────────────────────
 const firstMsg = userMessages[0];
 const cleanMsg = firstMsg
   .replace(/^(你好|hi|hello|hey|嗨|哈喽)[,，\s]*/i, '')
@@ -104,153 +87,101 @@ const cleanMsg = firstMsg
   .trim();
 const userQuestion = cleanMsg.length > 0 ? cleanMsg.slice(0, 200) : firstMsg.slice(0, 200);
 
-// 生成改动列表
+// 生成改动列表（最多 5 个文件）
 let changesDesc = '';
 if (changedFiles.length > 0) {
-  const displayFiles = changedFiles.slice(0, 8);
-  changesDesc = displayFiles.map(f => '  - ' + f).join('\n');
-  if (changedFiles.length > 8) {
-    changesDesc += '\n  - ...等共 ' + changedFiles.length + ' 个文件';
+  const displayFiles = changedFiles.slice(0, 5);
+  changesDesc = displayFiles.join(', ');
+  if (changedFiles.length > 5) {
+    changesDesc += ' 等 ' + changedFiles.length + ' 个文件';
   }
 }
 
-// 生成结果描述
-let result = '';
-if (changedFiles.length > 0) {
-  result = '完成（' + changedFiles.length + ' 个文件修改）';
+// ─── 写入 sessions.md ────────────────────────────────────────────────
+const now = new Date();
+const timeStr = now.toISOString().replace('T', ' ').replace('Z', '').replace(/\.\d+/, '');
+const today = now.toISOString().slice(0, 10);
+const hour = now.getHours();
+const period = hour < 12 ? '上午' : hour < 18 ? '下午' : '晚上';
+
+const sessionBlock = [
+  '',
+  '## ' + today + ' ' + period,
+  '',
+  '- **做了什么**: ' + userQuestion,
+  changesDesc ? '- **改动**: ' + changesDesc : '- **改动**: (无代码修改)',
+  '- **消息数**: ' + userMessages.length + ' 条',
+  ''
+].join('\n');
+
+// 追加到 sessions.md
+let sessionsContent = '';
+if (fs.existsSync(SESSIONS_FILE)) {
+  sessionsContent = fs.readFileSync(SESSIONS_FILE, 'utf8');
 } else {
-  result = '对话（无代码修改）';
+  sessionsContent = '# 会话记录\n\n> 由 session-end hook 自动维护。保留最近 3 天。\n';
 }
 
-// ─── 构建对话条目 ──────────────────────────────────────────────────────
-const entryId = state.nextEntryId++;
-state.windowCount++;
-const now = new Date().toISOString();
-const timeShort = now.replace('T', ' ').replace('Z', '').replace(/\.\d+/, '');
-const today = now.slice(0, 10);
-const padId = String(entryId).padStart(3, '0');
+// 追加新条目
+sessionsContent = sessionsContent.trimEnd() + '\n' + sessionBlock + '\n';
 
-// ─── 写入 daily/ ──────────────────────────────────────────────────────
-const dailyDir = path.join(PROMPTS_DIR, 'daily');
-if (!fs.existsSync(dailyDir)) fs.mkdirSync(dailyDir, { recursive: true });
-const dailyFile = path.join(dailyDir, today + '.md');
+// 裁剪：只保留最近 3 天的条目
+const allBlocks = sessionsContent.split(/\n(?=## \d{4}-\d{2}-\d{2} )/);
+const header = allBlocks[0];
+const entries = allBlocks.slice(1);
 
-const dailyBlock = [
-  '',
-  '## 对话-' + padId,
-  '',
-  '- **时间**: ' + timeShort,
-  '- **用户问题**: ' + userQuestion,
-  changesDesc ? '- **本轮改动**:\n' + changesDesc : '- **本轮改动**: (无)',
-  '- **结果**: ' + result,
-  ''
-].join('\n');
-
-fs.appendFileSync(dailyFile, dailyBlock + '\n');
-
-// ─── 写入 dialogs JSONL ───────────────────────────────────────────────
-const dialogsFile = path.join(DIALOGS_DIR, today + '.dialogs.jsonl');
-const jsonlLine = JSON.stringify({
-  id: entryId,
-  time: timeShort,
-  userQuestion: userQuestion,
-  changedFiles: changedFiles.slice(0, 10),
-  result: result,
-  userMessages: userMessages.length,
-  session: SESSION_ID
-});
-fs.appendFileSync(dialogsFile, jsonlLine + '\n');
-
-// ─── 更新 recent-5.md ─────────────────────────────────────────────────
-const mdBlock = [
-  '## 对话-' + padId,
-  '',
-  '- **时间**: ' + timeShort,
-  '- **用户问题**: ' + userQuestion,
-  changesDesc ? '- **本轮改动**:\n' + changesDesc : '- **本轮改动**: (无)',
-  '- **结果**: ' + result,
-  ''
-].join('\n');
-
-const recentHeader =
-  '# 最近对话记录（自动维护）\n\n' +
-  '> 由 session-end hook 自动生成，勿手动编辑。\n' +
-  '> 保留最近 5 条对话。\n';
-
-let existingEntries = '';
-if (fs.existsSync(RECENT_FILE)) {
-  const content = fs.readFileSync(RECENT_FILE, 'utf8');
-  const lines = content.split('\n');
-  // 兼容旧格式 ## Dialog- 和 ## Event-，统一迁移到 ## 对话-
-  const firstEntry = lines.findIndex(l => l.startsWith('## 对话-') || l.startsWith('## Dialog-') || l.startsWith('## Event-'));
-  if (firstEntry >= 0) {
-    existingEntries = lines.slice(firstEntry).join('\n').trim();
+// 按日期分组，保留最近 3 天
+const dateGroups = new Map();
+for (const entry of entries) {
+  const dateMatch = entry.match(/^## (\d{4}-\d{2}-\d{2})/);
+  if (dateMatch) {
+    const date = dateMatch[1];
+    if (!dateGroups.has(date)) dateGroups.set(date, []);
+    dateGroups.get(date).push(entry);
   }
 }
 
-const combined = (existingEntries + '\n' + mdBlock).trim();
-const entryBlocks = combined.split(/\n(?=## (?:对话|Dialog|Event)-)/).filter(b => b.startsWith('## 对话-') || b.startsWith('## Dialog-') || b.startsWith('## Event-'));
-const recentEntries = entryBlocks.slice(-5).join('\n');
+const sortedDates = [...dateGroups.keys()].sort().slice(-3);
+const recentEntries = sortedDates.map(d => dateGroups.get(d).join('\n')).join('\n');
 
-fs.writeFileSync(RECENT_FILE, recentHeader + '\n' + recentEntries + '\n');
+sessionsContent = header.trimEnd() + '\n' + recentEntries + '\n';
 
-// ─── 更新 summary-10.md ──────────────────────────────────────────────
-let summaryContent = '';
-if (fs.existsSync(SUMMARY_FILE)) {
-  summaryContent = fs.readFileSync(SUMMARY_FILE, 'utf8');
+fs.writeFileSync(SESSIONS_FILE, sessionsContent);
+
+// ─── 更新 state.md ──────────────────────────────────────────────────
+let stateContent = '';
+if (fs.existsSync(STATE_FILE)) {
+  stateContent = fs.readFileSync(STATE_FILE, 'utf8');
 } else {
-  summaryContent =
-    '# 对话摘要（有状态窗口）\n\n' +
-    '> 自动维护的滚动窗口。每 10 次对话生成一次压缩摘要。\n';
+  stateContent = [
+    '# 项目状态',
+    '',
+    '## 当前任务',
+    '（无活跃任务）',
+    '',
+    '## 进度',
+    '（无）',
+    '',
+    '## 阻塞点',
+    '（无）',
+    '',
+  ].join('\n');
 }
 
-// 更新进度
-const progressRe = /窗口进度:\s*\d+\/10/;
-const newProgress = '窗口进度: ' + state.windowCount + '/10';
-if (progressRe.test(summaryContent)) {
-  summaryContent = summaryContent.replace(progressRe, newProgress);
+// 更新"最近会话"部分
+const lastSessionLine = '- ' + today + ' ' + period + ': ' + userQuestion.slice(0, 100);
+if (stateContent.includes('## 最近会话')) {
+  // 替换最近会话部分
+  stateContent = stateContent.replace(
+    /## 最近会话\n[\s\S]*?(?=\n## |$)/,
+    '## 最近会话\n' + lastSessionLine + '\n'
+  );
 } else {
-  summaryContent += '\n## ' + state.windowId + '\n\n- ' + newProgress + '\n';
+  // 追加最近会话部分
+  stateContent = stateContent.trimEnd() + '\n\n## 最近会话\n' + lastSessionLine + '\n';
 }
 
-// 滚动窗口：达到 10 次时生成压缩摘要
-if (state.windowCount >= 10) {
-  // 读取本轮所有对话
-  let allDialogs = [];
-  try {
-    const dialogsContent = fs.readFileSync(dialogsFile, 'utf8');
-    const lines = dialogsContent.split('\n').filter(l => l.trim());
-    allDialogs = lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-  } catch {}
+fs.writeFileSync(STATE_FILE, stateContent);
 
-  const allFiles = [...new Set(allDialogs.flatMap(d => d.changedFiles || []))].slice(0, 10);
-  const topics = allDialogs.map(d => d.userQuestion || '').filter(Boolean).slice(0, 5);
-
-  let carryLines = '压缩自 ' + state.windowId + ':';
-  carryLines += '\n- 对话数: ' + state.windowCount + ' 次';
-  if (topics.length > 0) carryLines += '\n- 主题: ' + topics.join('; ');
-  if (allFiles.length > 0) carryLines += '\n- 涉及文件: ' + allFiles.join(', ');
-
-  const wn = parseInt(state.windowId.replace('W-', '')) || 1;
-  state.windowId = 'W-' + String(wn + 1).padStart(4, '0');
-  state.windowCount = 0;
-
-  summaryContent += '\n\n### 压缩摘要\n\n' + carryLines;
-  summaryContent += '\n\n---\n\n## ' + state.windowId + '\n\n- 窗口进度: 0/10\n';
-}
-
-// 淘汰旧 carry-forward：只保留最近 3 个窗口
-const allSections = summaryContent.split(/\n---\n(?=\n## W-)/);
-if (allSections.length > 4) { // header + 最近 3 个窗口
-  summaryContent = allSections[0] + '\n---\n' + allSections.slice(-3).join('\n---\n');
-}
-
-fs.writeFileSync(SUMMARY_FILE, summaryContent);
-
-// ─── 更新 log-state.json ──────────────────────────────────────────────
-state.lastProcessedDate = today;
-state.lastProcessedCount = (state.lastProcessedCount || 0) + 1;
-fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n');
-
-console.log('对话总结已生成: 对话-' + padId + ' (' + userMessages.length + ' 条消息, ' + changedFiles.length + ' 个文件)');
+console.log('会话摘要已生成: ' + today + ' ' + period + ' (' + userMessages.length + ' 条消息, ' + changedFiles.length + ' 个文件)');
 "

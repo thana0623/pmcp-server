@@ -149,8 +149,20 @@ else
   if [ -z "$FILES" ]; then
     exit 0
   fi
+  # Load ignore patterns from .secretscanignore
+  IGNORE_PATTERNS=()
+  if [ -f ".secretscanignore" ]; then
+    while IFS= read -r pattern; do
+      # Skip comments and empty lines
+      [[ "$pattern" =~ ^[[:space:]]*# ]] && continue
+      [[ -z "${pattern// /}" ]] && continue
+      IGNORE_PATTERNS+=("$pattern")
+    done < .secretscanignore
+  fi
+
   for f in $FILES; do
     [ -f "$f" ] || continue
+    # Check hardcoded exclusions
     case "$f" in
       node_modules/*|build/*|dist/*|*.min.js|*.min.css|*.map) continue ;;
       *.env.example|*.env.template) continue ;;
@@ -158,6 +170,14 @@ else
       hooks/scan-secrets.sh|.prompts-mcp/hooks/scan-secrets.sh) continue ;;
       .github/prompts/recent-5.md|.github/prompts/summary-10.md) continue ;;
     esac
+    # Check .secretscanignore patterns
+    skip=false
+    for pattern in "${IGNORE_PATTERNS[@]}"; do
+      case "$f" in
+        $pattern*) skip=true; break ;;
+      esac
+    done
+    $skip && continue
     file --mime-encoding "$f" 2>/dev/null | grep -q "binary" && continue
     scan_content "$(cat "$f")" "$f"
   done

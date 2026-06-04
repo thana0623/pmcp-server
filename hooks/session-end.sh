@@ -15,7 +15,7 @@ export SESSION_ID="${SESSION_ID:-unknown}"
 
 cd "$PROJECT_DIR"
 
-# Step 1: Generate dialog summary from session prompts + git diff
+# Step 1: Generate dialog summary → writes to sessions.md + state.md
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "$SCRIPT_DIR/generate-dialog-summary.sh" ]; then
   bash "$SCRIPT_DIR/generate-dialog-summary.sh" 2>/dev/null || true
@@ -31,10 +31,10 @@ fi
 
 # Step 3: Auto-commit
 git add "$PROMPTS_SUBDIR/" logs/
-git commit -m "auto: update prompts and logs on session end" 2>/dev/null
+git commit -m "auto: update memory on session end" 2>/dev/null
 
 if [ $? -eq 0 ]; then
-  echo "Changes committed (prompts + logs)."
+  echo "Changes committed (sessions.md + state.md)."
 else
   echo "No changes to commit."
 fi

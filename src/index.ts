@@ -845,25 +845,9 @@ class PromptsMcpServer {
     const lines: string[] = [];
     lines.push('# 🚀 会话已自动启动');
     lines.push('');
-    lines.push('> 以下为当前项目的完整上下文，请基于此开始工作。');
+    lines.push('> 以下为当前项目的记忆上下文，请基于此开始工作。');
     lines.push('');
     lines.push(formatted);
-
-    // 补充 dev-rules 全文
-    if (result.devRules.content) {
-      lines.push('## 📐 开发规范（完整）');
-      lines.push('');
-      lines.push(result.devRules.content);
-      lines.push('');
-    }
-
-    // 补充用户规则全文
-    if (result.userRules) {
-      lines.push('## 📝 用户自定义规则（完整）');
-      lines.push('');
-      lines.push(result.userRules);
-      lines.push('');
-    }
 
     return {
       content: [{ type: 'text', text: lines.join('\n') }],

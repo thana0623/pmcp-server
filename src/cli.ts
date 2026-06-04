@@ -17,7 +17,7 @@
  *   npx tsx src/cli.ts help
  */
 
-import { bootstrap, formatBootstrap, formatBootstrapCompact } from './prompts-loader.js';
+import { bootstrap, formatBootstrap } from './prompts-loader.js';
 import {
   getProjectRoot,
   getPromptsDir,
@@ -55,10 +55,10 @@ const PMCP_BLOCK = [
   '`pmcp` is a globally installed CLI tool. When the user types `pmcp <command>` in any project, execute it immediately as a Bash command without exploring the project first. Do not read files, search the codebase, or try to understand what pmcp is — just run it.',
   '',
   'Key commands:',
-  '- `pmcp start [path]` — bootstrap a project (init + load context + skill selection)',
+  '- `/start` — quick load project memory (preferred, instant)',
+  '- `pmcp start [path]` — bootstrap a project (init + load context)',
   '- `pmcp setup [path]` — initialize prompts-mcp in a project',
   '- `pmcp bootstrap` — reload context in an already-initialized project',
-  '- `pmcp skill list` — list available skills',
   '',
   'Example: when user says "pmcp start /path/to/project", run:',
   '```bash',
@@ -96,14 +96,13 @@ Usage:
 
 Commands:
   start [--project-root <path>] [--assistant <name>]
-       一键启动：自动初始化 + 加载上下文 + 选择 Skill（推荐）
+       一键启动：自动初始化 + 加载 4 文档记忆（推荐）
   setup [--project-root <path>] [--assistant <name>]
-       一键初始化：生成 prompts + hooks + MCP 配置 + Skills
+       一键初始化：生成 prompts + hooks + MCP 配置
   bootstrap                       加载上下文（已初始化项目使用）
   refresh-context                 刷新 context.md 技术栈（保留用户编辑）
-  advance-stage [--to <stage>]    推进 lifecycle 阶段
   confirm --goal <text>            方向确认（AI 追问后保存到 direction.md）
-  log --title <t> --request <r>   记录对话日志
+  log --title <t> --request <r>   记录对话日志（session-end 时自动归档到 sessions.md）
   module-log <name> --change <c>  记录模块修改
   module-read <name>              读取模块记录
   module-list                     列出所有模块记录
@@ -416,64 +415,10 @@ async function main(): Promise<void> {
         }
       }
 
-      // ── Step 3: 加载上下文（精简输出） ──
-      console.log('\n[3/4] 加载上下文...\n');
+      // ── Step 3: 加载上下文 ──
+      console.log('\n[3/3] 加载上下文...\n');
       const bootstrapResult = bootstrap();
-      console.log(formatBootstrapCompact(bootstrapResult));
-
-      // ── Step 3.5: ECC 检测（独立于 bootstrap，避免 hasEcc 返回 false） ──
-      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-      const hasEcc = fs.existsSync(path.join(homeDir, '.claude', 'rules', 'ecc'));
-
-      // ── Step 4: 角色选择 / ECC 自动进入需求 ──
-      if (hasEcc) {
-        // ECC 模式：3阶段轻量流程
-        console.log('\n[4/4] ECC 已检测 → 3阶段轻量流程\n');
-        console.log('═══════════════════════════════════════════════════════════');
-        console.log('  Understand → Execute → Close');
-        console.log('  请描述你遇到的问题（不是解决方案）。');
-        console.log('═══════════════════════════════════════════════════════════');
-        console.log('');
-
-        // 展示当前阶段引导
-        const stage = bootstrapResult.taskState?.stage || 'understand';
-        const stageGuide: Record<string, { label: string; next: string }> = {
-          understand: {
-            label: '🔍 问题探索',
-            next: '描述你遇到的问题 → AI 澄清 → 确认方向 → ECC 接管',
-          },
-          confirmed: { label: '✅ 方向已确认', next: 'ECC 接管执行' },
-          executing: {
-            label: '⚡ ECC 执行中',
-            next: 'ECC agents 自动编排执行 → 完成后自动进入总结',
-          },
-          closing: { label: '📝 总结归档', next: '确认完成情况 → git commit → 归档' },
-        };
-        const guide = stageGuide[stage];
-        if (guide) {
-          console.log(`  当前阶段: ${guide.label}`);
-          console.log(`  下一步: ${guide.next}`);
-          console.log('');
-        }
-        console.log('  流程: 问题探索 → ECC 全量执行 → 总结归档');
-        console.log('');
-      } else {
-        // 独立模式：展示角色选择
-        const skills = listSkills();
-        const maxNameLen = Math.max(...skills.map((s) => s.meta.name.length));
-        console.log('\n[4/4] Skill 选择\n');
-        console.log('═══════════════════════════════════════════════════════════');
-        console.log('  请选择角色（说出角色名即可）：');
-        console.log('═══════════════════════════════════════════════════════════');
-        console.log('');
-        for (const s of skills) {
-          const padded = s.meta.name.padEnd(maxNameLen + 2);
-          console.log(`  ${padded}${s.meta.description}`);
-        }
-        console.log('');
-        console.log('  直接说出角色名，或描述你的需求。');
-        console.log('');
-      }
+      console.log(formatBootstrap(bootstrapResult));
 
       break;
     }
@@ -496,104 +441,6 @@ async function main(): Promise<void> {
         console.log(`✅ context.md 已更新: ${result.changes.join(', ')}`);
       } else {
         console.log('✅ context.md 无需更新（技术栈无变化）');
-      }
-      break;
-    }
-
-    case 'advance-stage': {
-      const rootIndex = args.indexOf('--project-root');
-      const projectRoot =
-        rootIndex !== -1
-          ? path.resolve(args[rootIndex + 1])
-          : args[1] && !args[1].startsWith('--')
-            ? path.resolve(args[1])
-            : getProjectRoot();
-
-      setProjectRoot(projectRoot);
-
-      const toIndex = args.indexOf('--to');
-      const targetStage = toIndex !== -1 ? args[toIndex + 1] : '';
-
-      const promptsDir = getPromptsDir();
-      const statePath = path.join(promptsDir, 'task-state.json');
-
-      let state: any = { stage: 'understand', history: [] };
-      try {
-        if (fs.existsSync(statePath)) {
-          state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
-        }
-      } catch {
-        /* use default */
-      }
-
-      const validStages = ['understand', 'confirmed', 'executing', 'closing', 'archived'];
-      const currentStage = state.stage || 'understand';
-
-      if (!targetStage) {
-        // 自动推进到下一阶段
-        const stageOrder = ['understand', 'confirmed', 'executing', 'closing', 'archived'];
-        const currentIndex = stageOrder.indexOf(currentStage);
-        if (currentIndex === -1 || currentIndex >= stageOrder.length - 1) {
-          console.log(`当前阶段: ${currentStage}（无法自动推进）`);
-          console.log(`可用阶段: ${validStages.join(', ')}`);
-          console.log(`用法: pmcp advance-stage --to <stage>`);
-          break;
-        }
-        const nextStage = stageOrder[currentIndex + 1];
-
-        // confirmed 阶段需要计算 direction hash
-        if (nextStage === 'confirmed') {
-          const directionPath = path.join(promptsDir, 'direction.md');
-          if (fs.existsSync(directionPath)) {
-            const crypto = await import('node:crypto');
-            const directionContent = fs.readFileSync(directionPath, 'utf-8');
-            state.contractHash = crypto.createHash('sha256').update(directionContent).digest('hex');
-          }
-        }
-
-        state.stage = nextStage;
-        state.history = state.history || [];
-        state.history.unshift({
-          stage: nextStage,
-          entered: new Date().toISOString(),
-          note: `pmcp advance-stage 自动推进: ${currentStage} → ${nextStage}`,
-        });
-
-        fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n', 'utf-8');
-        console.log(`✅ ${currentStage} → ${nextStage}`);
-      } else {
-        // 手动指定目标阶段
-        if (!validStages.includes(targetStage)) {
-          console.error(`❌ 无效阶段: ${targetStage}`);
-          console.error(`可用阶段: ${validStages.join(', ')}`);
-          process.exit(1);
-        }
-
-        if (targetStage === currentStage) {
-          console.log(`已在 ${targetStage} 阶段，无需转换`);
-          break;
-        }
-
-        // confirmed 阶段需要计算 direction hash
-        if (targetStage === 'confirmed') {
-          const directionPath = path.join(promptsDir, 'direction.md');
-          if (fs.existsSync(directionPath)) {
-            const crypto = await import('node:crypto');
-            const directionContent = fs.readFileSync(directionPath, 'utf-8');
-            state.contractHash = crypto.createHash('sha256').update(directionContent).digest('hex');
-          }
-        }
-
-        state.stage = targetStage;
-        state.history = state.history || [];
-        state.history.unshift({
-          stage: targetStage,
-          entered: new Date().toISOString(),
-          note: `pmcp advance-stage 手动转换: ${currentStage} → ${targetStage}`,
-        });
-
-        fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n', 'utf-8');
-        console.log(`✅ ${currentStage} → ${targetStage}`);
       }
       break;
     }
@@ -835,9 +682,7 @@ async function main(): Promise<void> {
       console.log('  Setup 完成！');
       console.log('═'.repeat(60));
       console.log('');
-      console.log('下一步：');
-      console.log('  1. 说出角色名选择角色（如 "用 analyst 角色"）');
-      console.log('  2. 或用 Claude Code 打开项目，SessionStart hook 会自动加载上下文');
+      console.log('下一步：用 Claude Code 打开项目，SessionStart hook 会自动加载上下文。');
       console.log('');
       break;
     }
@@ -1518,48 +1363,6 @@ Examples:
 
       console.log('✅ pmcp 注册信息已移除。');
       console.log(`   配置文件: ${claudeMdPath}`);
-      break;
-    }
-
-    case 'new-requirement': {
-      printSeparator('新需求声明');
-
-      const promptsDir = getPromptsDir();
-      const statePath = path.join(promptsDir, 'task-state.json');
-      const directionPath = path.join(promptsDir, 'direction.md');
-
-      if (!fs.existsSync(statePath)) {
-        console.error('❌ task-state.json 不存在，请先运行 pmcp start 初始化项目。');
-        process.exit(1);
-      }
-
-      const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
-
-      if (state.stage === 'understand') {
-        console.log('✅ 当前已是 understand 状态，无需重置。');
-        break;
-      }
-
-      if (!Array.isArray(state.history)) {
-        state.history = [];
-      }
-      state.history.push({
-        stage: 'understand',
-        entered: new Date().toISOString(),
-        note: '用户/AI 声明新需求，重置状态机',
-      });
-      state.stage = 'understand';
-      fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
-
-      if (fs.existsSync(directionPath)) {
-        fs.writeFileSync(
-          directionPath,
-          '> status: expired\n\ndirection.md 已过期，请通过对话式探索重新确认方向。\n',
-        );
-      }
-
-      console.log('✅ 状态已重置为 understand（问题探索）。');
-      console.log('   请描述你遇到的问题，AI 会帮你澄清并确认方向。');
       break;
     }
 
