@@ -106,7 +106,6 @@ Commands:
   module-log <name> --change <c>  记录模块修改
   module-read <name>              读取模块记录
   module-list                     列出所有模块记录
-  todos add|complete|remove <t>   更新待办事项
   skill <subcommand>              Skill 管理（见下文）
   tools                           扫描项目已安装工具，输出能力清单
   scenes                          列出所有开发场景及推荐工具
@@ -1007,48 +1006,6 @@ async function main(): Promise<void> {
           console.log(`  📦 ${m}`);
         }
       }
-      break;
-    }
-
-    case 'todos': {
-      const action = args[1];
-      const todo = args.slice(2).join(' ');
-
-      if (!action || !todo) {
-        console.error('❌ 用法: todos add|complete|remove "todo text"');
-        process.exit(1);
-      }
-
-      const promptsDir = getPromptsDir();
-      const todosPath = path.join(promptsDir, 'todos.md');
-      let content = '';
-      if (fs.existsSync(todosPath)) {
-        content = fs.readFileSync(todosPath, 'utf-8');
-      } else {
-        content = '# 待办事项\n\n## 进行中\n\n*(暂无)*\n\n## 已完成\n\n*(暂无)*\n';
-      }
-
-      switch (action) {
-        case 'add': {
-          const marker = '## 进行中';
-          const idx = content.indexOf(marker);
-          if (idx !== -1) {
-            const after = content.indexOf('\n', idx) + 1;
-            content = content.slice(0, after) + `\n- [ ] ${todo}` + content.slice(after);
-          }
-          break;
-        }
-        case 'complete':
-          content = content.replace(`- [ ] ${todo}`, `- [x] ${todo}`);
-          break;
-        case 'remove':
-          content = content.replace(`- [ ] ${todo}\n`, '');
-          content = content.replace(`- [x] ${todo}\n`, '');
-          break;
-      }
-
-      fs.writeFileSync(todosPath, content, 'utf-8');
-      console.log(`✅ 待办已更新: ${action} "${todo}"`);
       break;
     }
 

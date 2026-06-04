@@ -79,7 +79,7 @@ Carry-forward from W-0005:
 
 ## W-0020
 
-- 窗口进度: 9/10
+- 窗口进度: 10/10
 
 
 ### Carry Forward
@@ -108,3 +108,16 @@ Carry-forward from W-0021:
 ## W-0022
 
 - Window progress: 0/10
+
+
+### 压缩摘要
+
+压缩自 W-0022:
+- 对话数: 10 次
+- 主题: pmcp start
+
+---
+
+## W-0023
+
+- 窗口进度: 0/10
