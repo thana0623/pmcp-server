@@ -12,6 +12,7 @@
     "build/",
     "hooks/",
     "adapters/",
+    "commands/",
     ".github/prompts/skills/"
   ],
   "repository": {
@@ -23,7 +24,7 @@
   },
   "homepage": "https://github.com/thana0623/prompts-mcp-server#readme",
   "scripts": {
-    "postinstall": "node -e \"console.log('\\x1b[32m%s\\x1b[0m', '✅ pmcp-server installed successfully! Run \\x1b[1mpmcp setup\\x1b[22m to initialize your project.')\"",
+    "postinstall": "node scripts/install-commands.js",
     "prepublishOnly": "npm run build && rm -rf build/__tests__",
     "build": "tsc -p tsconfig.json",
     "start": "node build/index.js",
