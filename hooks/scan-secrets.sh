@@ -168,7 +168,7 @@ else
       *.env.example|*.env.template) continue ;;
       package-lock.json|yarn.lock|pnpm-lock.yaml) continue ;;
       hooks/scan-secrets.sh|.prompts-mcp/hooks/scan-secrets.sh) continue ;;
-      .github/prompts/recent-5.md|.github/prompts/summary-10.md) continue ;;
+      .github/prompts/state.md|.github/prompts/sessions.md|.github/prompts/decisions.md) continue ;;
     esac
     # Check .secretscanignore patterns
     skip=false
