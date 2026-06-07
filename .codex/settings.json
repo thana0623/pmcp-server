@@ -1,0 +1,12 @@
+﻿{
+  "project": {
+    "name": "prompts-mcp-server",
+    "description": "AI-agnostic context lifecycle infrastructure - MCP server and CLI for prompts management",
+    "language": "typescript",
+    "packageManager": "npm"
+  },
+  "adapters": {
+    "codex": ".prompts-mcp/adapters/codex"
+  },
+  "version": 1
+}

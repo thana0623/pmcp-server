@@ -1,0 +1,73 @@
+﻿{
+    "hooks":  {
+                  "PreToolUse":  [
+                                     {
+                                         "matcher":  "Write|Edit",
+                                         "hooks":  [
+                                                       {
+                                                           "type":  "command",
+                                                           "command":  "node .prompts-mcp/pre-tool-use.cjs"
+                                                       }
+                                                   ]
+                                     }
+                                 ],
+                  "PostToolUse":  [
+                                      {
+                                          "matcher":  "Write|Edit",
+                                          "hooks":  [
+                                                        {
+                                                            "type":  "command",
+                                                            "command":  "node .prompts-mcp/post-write-scan.cjs",
+                                                            "timeout":  10
+                                                        }
+                                                    ]
+                                      },
+                                      {
+                                          "matcher":  "*",
+                                          "hooks":  [
+                                                        {
+                                                            "type":  "command",
+                                                            "command":  "node .prompts-mcp/normalize-log.cjs",
+                                                            "timeout":  5
+                                                        }
+                                                    ]
+                                      }
+                                  ],
+                  "SessionStart":  [
+                                       {
+                                           "matcher":  "*",
+                                           "hooks":  [
+                                                         {
+                                                             "type":  "command",
+                                                             "command":  "node .prompts-mcp/session-start.cjs",
+                                                             "statusMessage":  "Loading project context..."
+                                                         }
+                                                     ]
+                                       }
+                                   ],
+                  "UserPromptSubmit":  [
+                                           {
+                                               "hooks":  [
+                                                             {
+                                                                 "type":  "command",
+                                                                 "command":  "node .prompts-mcp/capture-prompt.cjs",
+                                                                 "timeout":  5
+                                                             }
+                                                         ]
+                                           }
+                                       ]
+              },
+    "Stop":  [
+                 {
+                     "hooks":  [
+                                   {
+                                       "command":  "node .prompts-mcp/session-end.cjs",
+                                       "timeout":  30,
+                                       "type":  "command",
+                                       "statusMessage":  "Finalizing session..."
+                                   }
+                               ],
+                     "matcher":  "*"
+                 }
+             ]
+}
