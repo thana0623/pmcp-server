@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 /**
  * PreToolUse Hook - Scope Guard (v2: 3-stage lifecycle)
  *
@@ -34,7 +34,7 @@ process.stdin.on('end', () => {
     const file = (data.tool_input && data.tool_input.file_path) || '';
 
     // Non-write tools -> allow
-    if (tool !== 'Write' && tool !== 'Edit') {
+    if (tool !== 'Write' && tool !== 'Edit' && tool !== 'apply_patch') {
       process.exit(0);
     }
 
@@ -112,7 +112,7 @@ process.stdin.on('end', () => {
       for (const line of specContent.split('\n')) {
         const m = line.match(/^IN:\s*(.+)$/);
         if (m) {
-          inPatterns.push(m[1].trim().replace(/[（(][^）)]*[）)]\s*$/, '').trim());
+          inPatterns.push(m[1].trim().replace(/[锛?][^锛?]*[锛?]\s*$/, '').trim());
         }
       }
 
@@ -233,7 +233,7 @@ process.stdin.on('end', () => {
       for (const line of specContent.split('\n')) {
         const m = line.match(/^IN:\s*(.+)$/);
         if (m) {
-          inPatterns.push(m[1].trim().replace(/[（(][^）)]*[）)]\s*$/, '').trim());
+          inPatterns.push(m[1].trim().replace(/[锛?][^锛?]*[锛?]\s*$/, '').trim());
         }
       }
 

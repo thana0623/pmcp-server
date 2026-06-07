@@ -1,4 +1,4 @@
-node_modules/
+﻿node_modules/
 build/
 dist/
 .env
@@ -10,4 +10,6 @@ logs/
 .prompts-mcp/
 !.prompts-mcp/pre-tool-use.cjs
 !.prompts-mcp/pre-tool-use.sh
+!.prompts-mcp/normalize-log.cjs
+!.prompts-mcp/adapters/codex/settings.json
 .npmrc

@@ -10,5 +10,4 @@
 （无）
 
 ## 最近会话
-- 2026-06-05: 注册 /start 为全局命令 + npm postinstall 自动安装；配置 SSH 走 HTTP 代理（~/.ssh/config）
-- 2026-06-04 晚上: /start
+- 2026-06-05 晚上: /start

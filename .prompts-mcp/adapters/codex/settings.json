@@ -1,0 +1,23 @@
+﻿{
+  "adapter": {
+    "name": "codex",
+    "description": "Codex AI Assistant adapter for prompts-mcp",
+    "format": {
+      "tool_name": "tool_name",
+      "tool_input": "tool_input",
+      "session_id": "session_id"
+    },
+    "hooks": {
+      "type": "node",
+      "entrypoint": ".prompts-mcp",
+      "scripts": {
+        "session-start": "./session-start.cjs",
+        "session-end": "./session-end.cjs",
+        "normalize-log": "./normalize-log.cjs",
+        "capture-prompt": "./capture-prompt.cjs",
+        "pre-tool-use": "./pre-tool-use.cjs",
+        "post-write-scan": "./post-write-scan.cjs"
+      }
+    }
+  }
+}
