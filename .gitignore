@@ -7,6 +7,8 @@ dist/
 *.tsbuildinfo
 logs/
 .claude/settings.local.json
+.claude/plans/
+.claude/prds/
 .prompts-mcp/
 !.prompts-mcp/pre-tool-use.cjs
 !.prompts-mcp/pre-tool-use.sh
