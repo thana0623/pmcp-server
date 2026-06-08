@@ -78,6 +78,81 @@ export function bootstrap(): BootstrapResult {
   return { context, state, sessions, decisions, hasEcc, skills };
 }
 
+// ─── 工作流阶段引导 ───────────────────────────────────────────────
+
+interface TaskState {
+  stage: string;
+  taskId: string;
+  contractHash: string;
+  history: Array<{ stage: string; entered: string; note?: string }>;
+}
+
+function readTaskState(): TaskState | null {
+  try {
+    const filePath = path.join(getPromptsDir(), 'task-state.json');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+const STAGE_GUIDANCE: Record<string, { phase: string; next: string }> = {
+  'spec-pending': { phase: '需求分析', next: '描述你的问题，AI 会追问澄清' },
+  understand: { phase: '需求分析', next: '确认方向后自动进入任务规划' },
+  confirmed: { phase: '任务规划', next: '确认计划后自动开始编码' },
+  plan: { phase: '任务规划', next: '确认计划后自动开始编码' },
+  'task-planning': { phase: '任务规划', next: '确认计划后自动开始编码' },
+  executing: { phase: '编码实现', next: '完成一个子任务后自动测试' },
+  implement: { phase: '编码实现', next: '完成一个子任务后自动测试' },
+  developing: { phase: '编码实现', next: '完成一个子任务后自动测试' },
+  testing: { phase: '测试验证', next: '测试通过后自动进入代码审查' },
+  reviewing: { phase: '代码审查', next: '审查通过后自动提交发布' },
+  review: { phase: '代码审查', next: '审查通过后自动提交发布' },
+  'user-confirming': { phase: '用户确认', next: '确认通过后提交发布' },
+  completed: { phase: '已完成', next: '提交发布或描述新问题' },
+  published: { phase: '已发布', next: '描述新问题开始下一轮开发' },
+  archived: { phase: '无任务', next: '描述你的问题，开始需求分析' },
+  'change-requested': { phase: '需求变更', next: '更新方向后重新确认' },
+  incomplete: { phase: '未完成', next: '继续之前的任务或开始新需求' },
+};
+
+function getLastCompletedTaskId(taskState: TaskState | null): string {
+  if (!taskState?.taskId) return '';
+  // Only return taskId if the task is in a terminal state
+  const terminal = ['archived', 'completed', 'published'];
+  if (terminal.includes(taskState.stage)) {
+    return taskState.taskId;
+  }
+  return '';
+}
+
+function formatWorkflowGuidance(taskState: TaskState | null): string {
+  const lines: string[] = [];
+
+  lines.push('## 工作流');
+  lines.push('');
+
+  if (!taskState || !taskState.stage || taskState.stage === 'archived') {
+    lines.push('阶段: 无任务');
+    lines.push('下一步: 描述你的问题，开始需求分析');
+    // Suggest /clear if there was a previous task
+    const lastTask = getLastCompletedTaskId(taskState);
+    if (lastTask) {
+      lines.push('');
+      lines.push(`💡 上一个任务「${lastTask}」已归档。如果新需求无关，建议先 /clear 清理上下文。`);
+    }
+  } else {
+    const guidance = STAGE_GUIDANCE[taskState.stage] || STAGE_GUIDANCE['archived'];
+    lines.push(`阶段: ${guidance.phase}（${taskState.taskId || '未命名'}）`);
+    lines.push(`下一步: ${guidance.next}`);
+  }
+
+  return lines.join('\n');
+}
+
+// ─── 格式化 ────────────────────────────────────────────────────────
+
 /**
  * 格式化 bootstrap 结果为精简文本
  */
@@ -117,9 +192,18 @@ export function formatBootstrap(result: BootstrapResult): string {
     lines.push('');
   }
 
+  // 工作流阶段引导
+  const taskState = readTaskState();
+  lines.push(formatWorkflowGuidance(taskState));
+  lines.push('');
+
   lines.push('---');
   lines.push('');
-  lines.push('上下文已加载。请描述你的问题。');
+
+  // 单行行动提示（不重复阶段信息）
+  if (!taskState || !taskState.stage || taskState.stage === 'archived') {
+    lines.push('上下文已加载。请描述你的问题。');
+  }
   lines.push('');
 
   return lines.join('\n');

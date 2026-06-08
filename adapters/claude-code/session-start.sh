@@ -155,23 +155,35 @@ if [ -f "$STATE_FILE" ] && [ -f "$SPEC_FILE" ]; then
   fi
 fi
 
-# Step 0.5: Stage-aware lifecycle guidance
+# Step 0.5: Stage-aware lifecycle guidance (6-phase pipeline)
 if [ -f "$STATE_FILE" ]; then
   STAGE=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$STATE_FILE','utf8')).stage||'')}catch(e){console.log('')}")
-  if [ "$STAGE" = "completed" ]; then
-    echo ""
-    echo "## 📋 上一个需求已完成"
-    echo ""
-    echo "开发阶段已结束。请检查 focus-spec.md 中的 TODO 是否全部完成。"
-    echo "完成后输入「归档」以归档当前需求，然后可以开始新需求。"
-    echo ""
-  elif [ "$STAGE" = "archived" ]; then
-    echo ""
-    echo "## ✅ 已归档"
-    echo ""
-    echo "上一个需求已归档完成。可以开始新需求。"
-    echo ""
-  fi
+  TASK_ID=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$STATE_FILE','utf8')).taskId||'')}catch(e){console.log('')}")
+
+  case "$STAGE" in
+    completed|published)
+      echo ""
+      echo "## 📋 任务已完成: $TASK_ID"
+      echo ""
+      echo "开发阶段已结束。请运行敏感信息审查后提交发布。"
+      echo "或输入「归档」以归档当前需求。"
+      echo ""
+      ;;
+    archived)
+      # 有上一个已归档的任务，提示 /clear
+      if [ -n "$TASK_ID" ]; then
+        echo ""
+        echo "💡 上一个任务「$TASK_ID」已归档。如果新需求无关，建议先 /clear 清理上下文。"
+        echo ""
+      fi
+      ;;
+    understand|"")
+      # 无活跃任务，bootstrap 输出会包含引导信息
+      ;;
+    *)
+      # 其他阶段（plan/implement/test/review 等），bootstrap 输出已包含阶段引导
+      ;;
+  esac
 fi
 
 # Step 1: Process any unprocessed logs from previous sessions
@@ -187,15 +199,13 @@ fi
 # Only updates section 1 (tech stack), preserves section 2+ (user-edited)
 node "$MCP_CLI_PATH" refresh-context 2>/dev/null || true
 
-# Step 1.6: Auto-transition archived → spec-pending for new requirement cycles
-# When stage=archived and no focus-spec exists, reset to spec-pending to trigger Hard Gate
+# Step 1.6: Auto-transition archived → understand for new requirement cycles
+# Only transition from archived; completed/published stay so user can choose to publish or archive
 # Note: STATE_FILE already defined in Step 0 (contract integrity check)
 if [ -f "$STATE_FILE" ]; then
   STAGE=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).stage||'')}catch{console.log('')}" "$STATE_FILE" 2>/dev/null)
-  SPEC_EXISTS="no"
-  if [ -f "$SPEC_FILE" ]; then SPEC_EXISTS="yes"; fi
 
-  if [ "$STAGE" = "archived" ] && [ "$SPEC_EXISTS" = "no" ]; then
+  if [ "$STAGE" = "archived" ]; then
     node -e "
       const fs=require('fs'),p=process.argv[1];
       const s=JSON.parse(fs.readFileSync(p,'utf8'));
