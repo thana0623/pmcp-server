@@ -157,16 +157,15 @@ fi
 
 # Step 0.5: Stage-aware lifecycle guidance (6-phase pipeline)
 if [ -f "$STATE_FILE" ]; then
-  STAGE=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$STATE_FILE','utf8')).stage||'')}catch(e){console.log('')}")
-  TASK_ID=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$STATE_FILE','utf8')).taskId||'')}catch(e){console.log('')}")
+  STAGE=$(node -e "try{const r=require('fs').readFileSync('$STATE_FILE','utf8').replace(/^﻿/,'');const s=JSON.parse(r);const c={'spec-pending':'understand','confirmed':'plan','task-planning':'plan','executing':'implement','developing':'implement','incomplete':'implement','testing':'test','reviewing':'review','user-confirming':'review','completed':'publish','published':'publish','change-requested':'understand'};console.log(c[s.stage]||s.stage||'')}catch(e){console.log('')}")
+  TASK_ID=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$STATE_FILE','utf8').replace(/^﻿/,'')).taskId||'')}catch(e){console.log('')}")
 
   case "$STAGE" in
-    completed|published)
+    publish)
       echo ""
       echo "## 📋 任务已完成: $TASK_ID"
       echo ""
-      echo "开发阶段已结束。请运行敏感信息审查后提交发布。"
-      echo "或输入「归档」以归档当前需求。"
+      echo "开发阶段已结束。运行 \`pmcp end\` 归档任务。"
       echo ""
       ;;
     archived)
@@ -203,12 +202,13 @@ node "$MCP_CLI_PATH" refresh-context 2>/dev/null || true
 # Only transition from archived; completed/published stay so user can choose to publish or archive
 # Note: STATE_FILE already defined in Step 0 (contract integrity check)
 if [ -f "$STATE_FILE" ]; then
-  STAGE=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).stage||'')}catch{console.log('')}" "$STATE_FILE" 2>/dev/null)
+  STAGE=$(node -e "try{const r=require('fs').readFileSync(process.argv[1],'utf8').replace(/^﻿/,'');const s=JSON.parse(r);const c={'spec-pending':'understand','confirmed':'plan','task-planning':'plan','executing':'implement','developing':'implement','incomplete':'implement','testing':'test','reviewing':'review','user-confirming':'review','completed':'publish','published':'publish','change-requested':'understand'};console.log(c[s.stage]||s.stage||'')}catch{console.log('')}" "$STATE_FILE" 2>/dev/null)
 
   if [ "$STAGE" = "archived" ]; then
     node -e "
       const fs=require('fs'),p=process.argv[1];
-      const s=JSON.parse(fs.readFileSync(p,'utf8'));
+      const raw=fs.readFileSync(p,'utf8').replace(/^﻿/,'');
+      const s=JSON.parse(raw);
       s.stage='understand';
       s.taskId='';
       s.contractHash='';
