@@ -1,28 +1,42 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 /**
- * PreToolUse Hook - Scope Guard (v2: 3-stage lifecycle)
+ * PreToolUse Hook - Scope Guard (v3: 6-stage lifecycle)
  *
- * Stage-based write control:
- *   understand  -> direction.md + task-state.json writable
- *   executing   -> IN scope writable (ECC agent development)
- *   closing     -> task-state.json writable; other files read-only
+ * Stage-based write control (new 6-stage pipeline):
+ *   understand  -> direction.md + task-state.json + plans/ writable
+ *   plan        -> task-state.json + plans/ writable
+ *   implement   -> IN scope writable (project source code)
+ *   test        -> test files + task-state.json writable
+ *   review      -> task-state.json only (read-review stage)
+ *   publish     -> task-state.json + recent-5.md + summary-10.md writable
  *   archived    -> all writes ALLOWED (ready for new requirement)
  *
- * Legacy stages (still supported for backward compatibility):
- *   spec-pending      -> only focus-spec.md and task-state.json writable
- *   confirmed         -> focus-spec.md BLOCKED; other files hash-verified + scope-checked
- *   task-planning     -> focus-spec.md writable (add task breakdown); IN scope writable
- *   developing        -> IN scope writable
- *   reviewing         -> all writes BLOCKED
- *   user-confirming   -> only task-state.json writable
- *   change-requested  -> all project files writable
- *   completed         -> all writes BLOCKED
- *   incomplete        -> same as developing
+ * Legacy stages are auto-mapped to new stages for backward compatibility.
  */
 
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
+
+// ─── Stage compatibility mapping ─────────────────────────────────────
+const STAGE_COMPAT = {
+  'spec-pending': 'understand',
+  'confirmed': 'plan',
+  'task-planning': 'plan',
+  'executing': 'implement',
+  'developing': 'implement',
+  'incomplete': 'implement',
+  'testing': 'test',
+  'reviewing': 'review',
+  'user-confirming': 'review',
+  'completed': 'publish',
+  'published': 'publish',
+  'change-requested': 'understand',
+};
+
+function normalizeStage(raw) {
+  return STAGE_COMPAT[raw] || raw;
+}
 
 let input = '';
 process.stdin.setEncoding('utf8');
@@ -41,18 +55,22 @@ process.stdin.on('end', () => {
     const cwd = process.cwd().replace(/\\/g, '/');
     const statePath = path.join(cwd, '.github', 'prompts', 'task-state.json');
     const specPath = path.join(cwd, '.github', 'prompts', 'focus-spec.md');
+    const directionPath = path.join(cwd, '.github', 'prompts', 'direction.md');
     const plansDir = path.join(cwd, '.github', 'prompts', 'plans');
 
-    // Read task state
-    let stage = 'understand';
+    // Read task state (strip BOM if present)
+    let rawStage = 'understand';
     let storedHash = '';
     try {
-      const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-      stage = state.stage || 'understand';
+      const raw = fs.readFileSync(statePath, 'utf8').replace(/^﻿/, '');
+      const state = JSON.parse(raw);
+      rawStage = state.stage || 'understand';
       storedHash = state.contractHash || '';
     } catch (_) {
-      stage = 'understand';
+      rawStage = 'understand';
     }
+
+    const stage = normalizeStage(rawStage);
 
     // Normalize file path
     let normalizedFile = file.replace(/\\/g, '/');
@@ -66,9 +84,14 @@ process.stdin.on('end', () => {
       process.exit(0);
     }
 
-    // === New 3-stage lifecycle ===
+    // state.md -> always allow (for "发现的问题" updates)
+    if (normalizedFile.endsWith('/state.md') || normalizedFile === 'state.md') {
+      process.exit(0);
+    }
 
-    // understand: direction.md + task-state.json + plans/ writable
+    // ─── New 6-stage lifecycle ───────────────────────────────────────
+
+    // understand: direction.md + plans/ writable
     if (stage === 'understand') {
       if (normalizedFile.endsWith('/direction.md') || normalizedFile.endsWith('/focus-spec.md')) {
         process.exit(0);
@@ -80,41 +103,21 @@ process.stdin.on('end', () => {
       process.exit(2);
     }
 
-    // executing: IN scope writable (ECC handles the details)
-    if (stage === 'executing') {
-      // Try to read IN scope from focus-spec.md or direction.md in plans/
-      let specContent = '';
-      try {
-        specContent = fs.readFileSync(specPath, 'utf8');
-      } catch (_) {
-        // focus-spec.md doesn't exist, try direction.md in plans/
-        try {
-          if (fs.existsSync(plansDir)) {
-            const dirs = fs.readdirSync(plansDir);
-            for (const d of dirs) {
-              const dp = path.join(plansDir, d, 'direction.md');
-              if (fs.existsSync(dp)) {
-                specContent = fs.readFileSync(dp, 'utf8');
-                break;
-              }
-              const sp = path.join(plansDir, d, 'focus-spec.md');
-              if (fs.existsSync(sp)) {
-                specContent = fs.readFileSync(sp, 'utf8');
-                break;
-              }
-            }
-          }
-        } catch (_) {}
+    // plan: plans/ writable (for architecture docs, task breakdown)
+    if (stage === 'plan') {
+      if (normalizedFile.includes('/plans/')) {
+        process.exit(0);
       }
+      if (normalizedFile.endsWith('/direction.md') || normalizedFile.endsWith('/focus-spec.md')) {
+        process.exit(0);
+      }
+      process.stderr.write('[hook] BLOCKED: stage=plan, file=' + normalizedFile + '\n');
+      process.exit(2);
+    }
 
-      // Extract IN patterns
-      const inPatterns = [];
-      for (const line of specContent.split('\n')) {
-        const m = line.match(/^IN:\s*(.+)$/);
-        if (m) {
-          inPatterns.push(m[1].trim().replace(/[锛?][^锛?]*[锛?]\s*$/, '').trim());
-        }
-      }
+    // implement: IN scope writable (project source code)
+    if (stage === 'implement') {
+      const inPatterns = readInPatterns(specPath, directionPath, plansDir);
 
       // If no IN patterns found, allow all writes (ECC is in control)
       if (inPatterns.length === 0) {
@@ -125,168 +128,55 @@ process.stdin.on('end', () => {
         process.exit(0);
       }
 
-      const matches = inPatterns.some(p => {
-        const np = p.replace(/\\/g, '/');
-        if (np.endsWith('/**')) {
-          const dir = np.slice(0, -3);
-          return normalizedFile.startsWith(dir + '/') || normalizedFile === dir;
-        }
-        if (np.includes('*')) {
-          const regex = new RegExp('^' + np.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*') + '$');
-          return regex.test(normalizedFile);
-        }
-        return normalizedFile === np || normalizedFile.startsWith(np + '/');
-      });
-
+      const matches = inPatterns.some(p => matchPattern(p, normalizedFile));
       if (!matches) {
         process.stderr.write('[hook] BLOCKED: out of scope, file=' + normalizedFile + '\n');
         process.exit(2);
       }
-
       process.exit(0);
     }
 
-    // closing: task-state.json + recent-5.md + summary-10.md writable
-    if (stage === 'closing') {
+    // test: test files + task-state.json writable
+    if (stage === 'test') {
+      // Allow test files, spec files, and common test patterns
+      if (normalizedFile.includes('.test.') || normalizedFile.includes('.spec.') ||
+          normalizedFile.includes('__tests__') || normalizedFile.includes('/test/') ||
+          normalizedFile.includes('/tests/')) {
+        process.exit(0);
+      }
+      // Also allow IN scope (implementation fixes during test)
+      const inPatterns = readInPatterns(specPath, directionPath, plansDir);
+      if (inPatterns.length === 0 || inPatterns.includes('*')) {
+        process.exit(0);
+      }
+      const matches = inPatterns.some(p => matchPattern(p, normalizedFile));
+      if (matches) {
+        process.exit(0);
+      }
+      process.stderr.write('[hook] BLOCKED: stage=test, file=' + normalizedFile + '\n');
+      process.exit(2);
+    }
+
+    // review: read-only stage, only task-state.json writable (already handled above)
+    if (stage === 'review') {
+      process.stderr.write('[hook] BLOCKED: stage=review (read-only), file=' + normalizedFile + '\n');
+      process.exit(2);
+    }
+
+    // publish: session management files writable
+    if (stage === 'publish') {
       if (normalizedFile.endsWith('/recent-5.md') || normalizedFile.endsWith('/summary-10.md')) {
         process.exit(0);
       }
-      if (normalizedFile.endsWith('/archive-index.md')) {
+      if (normalizedFile.endsWith('/sessions.md') || normalizedFile.endsWith('/archive-index.md')) {
         process.exit(0);
       }
-      process.stderr.write('[hook] BLOCKED: stage=closing, file=' + normalizedFile + '\n');
+      process.stderr.write('[hook] BLOCKED: stage=publish, file=' + normalizedFile + '\n');
       process.exit(2);
     }
 
     // archived: all writes allowed
     if (stage === 'archived') {
-      process.exit(0);
-    }
-
-    // === Legacy stages (backward compatibility) ===
-
-    if (normalizedFile.endsWith('/focus-spec.md') || normalizedFile === 'focus-spec.md') {
-      if (stage === 'confirmed') {
-        process.stderr.write('[hook] BLOCKED: contract locked (stage=confirmed)\n');
-        process.exit(2);
-      }
-      process.exit(0);
-    }
-
-    // spec-pending: only focus-spec.md and plans/ writable
-    if (stage === 'spec-pending') {
-      if (normalizedFile.includes('/plans/')) {
-        process.exit(0);
-      }
-      process.stderr.write('[hook] BLOCKED: stage=spec-pending, file=' + normalizedFile + '\n');
-      process.exit(2);
-    }
-
-    // confirmed: hash integrity check
-    if (stage === 'confirmed') {
-      let specContent = '';
-      try {
-        specContent = fs.readFileSync(specPath, 'utf8');
-      } catch (_) {
-        process.stderr.write('[hook] BLOCKED: cannot read focus-spec.md\n');
-        process.exit(2);
-      }
-
-      const actualHash = crypto.createHash('sha256').update(specContent).digest('hex');
-      if (!storedHash || actualHash !== storedHash) {
-        try {
-          const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-          state.stage = 'spec-pending';
-          state.history = state.history || [];
-          state.history.unshift({
-            stage: 'spec-pending',
-            entered: new Date().toISOString(),
-            note: 'hash mismatch'
-          });
-          fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
-        } catch (_) {}
-
-        process.stderr.write('[hook] BLOCKED: hash mismatch\n');
-        process.exit(2);
-      }
-      // Hash OK -> fall through to IN scope check
-    }
-
-    // task-planning: focus-spec writable
-    if (stage === 'task-planning') {
-      if (normalizedFile.endsWith('/focus-spec.md') || normalizedFile === 'focus-spec.md') {
-        process.exit(0);
-      }
-    }
-
-    // developing/incomplete/task-planning: IN scope writable
-    if (stage === 'developing' || stage === 'incomplete' || stage === 'task-planning') {
-      let specContent = '';
-      try {
-        specContent = fs.readFileSync(specPath, 'utf8');
-      } catch (_) {
-        process.stderr.write('[hook] BLOCKED: cannot read focus-spec.md\n');
-        process.exit(2);
-      }
-
-      const inPatterns = [];
-      for (const line of specContent.split('\n')) {
-        const m = line.match(/^IN:\s*(.+)$/);
-        if (m) {
-          inPatterns.push(m[1].trim().replace(/[锛?][^锛?]*[锛?]\s*$/, '').trim());
-        }
-      }
-
-      if (inPatterns.length === 0) {
-        process.stderr.write('[hook] BLOCKED: no IN scope defined\n');
-        process.exit(2);
-      }
-
-      if (inPatterns.includes('*')) {
-        process.exit(0);
-      }
-
-      const matches = inPatterns.some(p => {
-        const np = p.replace(/\\/g, '/');
-        if (np.endsWith('/**')) {
-          const dir = np.slice(0, -3);
-          return normalizedFile.startsWith(dir + '/') || normalizedFile === dir;
-        }
-        if (np.includes('*')) {
-          const regex = new RegExp('^' + np.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*') + '$');
-          return regex.test(normalizedFile);
-        }
-        return normalizedFile === np || normalizedFile.startsWith(np + '/');
-      });
-
-      if (!matches) {
-        process.stderr.write('[hook] BLOCKED: out of scope, file=' + normalizedFile + '\n');
-        process.exit(2);
-      }
-
-      process.exit(0);
-    }
-
-    // reviewing: all writes BLOCKED
-    if (stage === 'reviewing') {
-      process.stderr.write('[hook] BLOCKED: stage=reviewing\n');
-      process.exit(2);
-    }
-
-    // user-confirming: only task-state.json writable
-    if (stage === 'user-confirming') {
-      process.stderr.write('[hook] BLOCKED: stage=user-confirming\n');
-      process.exit(2);
-    }
-
-    // completed: all writes BLOCKED
-    if (stage === 'completed') {
-      process.stderr.write('[hook] BLOCKED: stage=completed\n');
-      process.exit(2);
-    }
-
-    // change-requested: allow all
-    if (stage === 'change-requested') {
       process.exit(0);
     }
 
@@ -296,3 +186,66 @@ process.stdin.on('end', () => {
     process.exit(0);
   }
 });
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+function readInPatterns(specPath, directionPath, plansDir) {
+  let specContent = '';
+
+  // Try direction.md first, then focus-spec.md
+  try {
+    if (fs.existsSync(directionPath)) {
+      specContent = fs.readFileSync(directionPath, 'utf8');
+    }
+  } catch (_) {}
+
+  if (!specContent) {
+    try {
+      if (fs.existsSync(specPath)) {
+        specContent = fs.readFileSync(specPath, 'utf8');
+      }
+    } catch (_) {}
+  }
+
+  if (!specContent) {
+    try {
+      if (fs.existsSync(plansDir)) {
+        const dirs = fs.readdirSync(plansDir);
+        for (const d of dirs) {
+          const dp = path.join(plansDir, d, 'direction.md');
+          if (fs.existsSync(dp)) {
+            specContent = fs.readFileSync(dp, 'utf8');
+            break;
+          }
+          const sp = path.join(plansDir, d, 'focus-spec.md');
+          if (fs.existsSync(sp)) {
+            specContent = fs.readFileSync(sp, 'utf8');
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  const inPatterns = [];
+  for (const line of specContent.split('\n')) {
+    const m = line.match(/^IN:\s*(.+)$/);
+    if (m) {
+      inPatterns.push(m[1].trim().replace(/[​‌‍﻿]/g, '').trim());
+    }
+  }
+  return inPatterns;
+}
+
+function matchPattern(pattern, filePath) {
+  const np = pattern.replace(/\\/g, '/');
+  if (np.endsWith('/**')) {
+    const dir = np.slice(0, -3);
+    return filePath.startsWith(dir + '/') || filePath === dir;
+  }
+  if (np.includes('*')) {
+    const regex = new RegExp('^' + np.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*') + '$');
+    return regex.test(filePath);
+  }
+  return filePath === np || filePath.startsWith(np + '/');
+}
