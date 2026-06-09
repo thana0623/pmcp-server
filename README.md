@@ -20,12 +20,14 @@ SessionStart hook 自动加载上下文，SessionEnd hook 自动 git commit。
 
 ## 两个入口
 
-pmcp 只有两个命令入口：**/start** 和 **/end**。
+pmcp 只有两个 slash 命令：**/start** 和 **/end**。
 
 ```
 /start ──→ 加载上下文，告诉你当前状态，引导进入 6 阶段流水线
 /end   ──→ 审查变更，归档任务，清理上下文，结束本轮开发
 ```
+
+> 非 Claude Code 环境用 `pmcp start` / `pmcp end` 替代。
 
 中间的所有阶段（需求分析 → 拆任务 → 编码 → 测试 → 审查）由 AI 自动引导，你只需在关键节点确认。
 
@@ -91,7 +93,7 @@ AI 逐项编码（每项自动引入 CodeGraph 上下文）
 
 ## /end 流程
 
-`/end` 是 `/start` 的对称操作。一个任务完成或上下文过长时调用。
+`/end` 是 `/start` 的对称操作。一个任务完成或上下文过长时，在 Claude Code 中直接输入 `/end`。
 
 ### /end 做什么
 
@@ -128,14 +130,17 @@ AI 逐项编码（每项自动引入 CodeGraph 上下文）
 ## CLI 命令速查
 
 ```bash
-# 生命周期（你最常用的）
-pmcp start              # 启动项目，加载上下文
+# 生命周期（slash 命令优先，CLI 备选）
+/start                  # 加载上下文（Claude Code 中直接输入）
+/end                    # 审查 + 归档（Claude Code 中直接输入）
+pmcp start              # 启动项目（非 Claude Code 环境）
+pmcp end                # 结束本轮开发（非 Claude Code 环境）
 pmcp setup              # 首次初始化（prompts + hooks + MCP + skills）
 pmcp bootstrap          # 重新加载上下文（不重新初始化）
 
 # 流水线中 AI 调用的（你一般不需要手动跑）
 pmcp confirm            # 确认方向（Understand → Plan 的转折点）
-pmcp audit              # 敏感信息审查（Publish 阶段自动调用）
+pmcp audit              # 敏感信息审查（/end 自动调用）
 pmcp publish            # 一键发布（审查 + 版本 + npm + push）
 
 # 工具
@@ -148,7 +153,8 @@ pmcp tools              # 扫描项目工具
 | 场景 | 命令 |
 |------|------|
 | 新项目首次使用 | `pmcp setup` |
-| 每次打开项目 | `pmcp start`（自动） |
+| 每次打开项目 | `/start`（自动） |
+| 结束本轮开发 | `/end` |
 | 上下文加载失败 | `pmcp bootstrap` |
 | 想手动审查代码 | `pmcp audit` |
 | 想发 npm 包 | `pmcp publish` |
