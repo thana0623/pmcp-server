@@ -1,8 +1,13 @@
-﻿{
+{
   "stage": "archived",
-  "taskId": "simplify-ecc-lifecycle",
+  "taskId": "6-phase-pipeline-align",
   "contractHash": "",
   "history": [
+    {
+      "stage": "archived",
+      "entered": "2026-06-09T02:54:42.625Z",
+      "note": "pmcp end 归档：6阶段流水线对齐"
+    },
     {
       "stage": "archived",
       "entered": "2026-06-07T10:10:39.784Z",
@@ -147,4 +152,3 @@
     }
   ]
 }
-

@@ -20,4 +20,11 @@
 - **改动**: (无代码修改)
 - **消息数**: 11 条
 
+## 2026-06-09 上午
+
+- **做了什么**: 6阶段流水线对齐 — README重写 + /end命令 + PreToolUse hook + BOM修复
+- **改动**: README.md, cli.ts, prompts-loader.ts, prompts-generator.ts, pre-tool-use.cjs, session-start.cjs/sh, skills/end.md, state.md
+- **关键决策**: 阶段名从3阶段扩展为6阶段(understand/plan/implement/test/review/publish/archived)，兼容旧阶段名；/end只管审查+归档，git commit由session-end hook自动处理
+- **消息数**: 20+ 条
+
 
