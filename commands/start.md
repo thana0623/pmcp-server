@@ -2,8 +2,7 @@
 
 ## 步骤
 
-1. 读取以下 4 个文件（按顺序）：
-   - `.github/prompts/context.md` — 项目全貌
+1. 读取以下 3 个文件（按顺序）：
    - `.github/prompts/state.md` — 当前状态
    - `.github/prompts/sessions.md` — 最近会话
    - `.github/prompts/decisions.md` — 关键决策
@@ -17,11 +16,18 @@
 | 没有活跃任务 | "没有活跃任务。想做什么？" |
 | 有任务没拆 | "建议先用 planner 拆任务" |
 | 任务拆完没写 | "可以开始开发了，建议 TDD 方式" |
-| 写完了没提交 | "代码写完了，建议 code-review + git commit" |
+| 写完了没提交 | "代码写完了，建议 /commit 提交" |
 | 刚提交完 | "上个任务完成，想继续做什么？" |
+
+4. 列出可用命令（只在首次启动时显示）：
+
+```
+可用命令：/start /end /commit /push
+```
 
 ## 注意
 
 - 如果文件不存在，运行 `pmcp setup` 初始化
 - 不要输出文件原文，只输出总结和建议
 - 保持简洁，3-5 行足够
+- 不要读 context.md（太长，按需读）

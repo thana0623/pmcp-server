@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 /**
  * Universal PostToolUse hook (assistant-agnostic)
  * Normalizes tool call data for any supported assistant and appends to dialog log

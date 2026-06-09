@@ -24,7 +24,7 @@ updated: 2026-06-09
 
 用 Bash 运行 `git status --short`。
 
-- 有未提交的改动 → 用 Bash 运行 `git diff` 查看变更，生成 commit message，提示用户确认后 commit。
+- 有未提交的改动 → 提示用户使用 `/commit` 先提交代码，或确认跳过。
 - 没有改动 → 跳过。
 
 ### Step 3: 敏感信息审查

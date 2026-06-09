@@ -1,10 +1,16 @@
 # 项目状态
 
 ## 当前任务
-（无活跃任务）
+会话命令体系重构 — 修复 /start /end + 新建 /commit /push + 移除自动 git 提交
 
 ## 进度
-（无）
+- [x] PRD 编写完成
+- [x] 实施计划编写完成
+- [x] Milestone 1: 修复 /end 注册
+- [x] Milestone 2: 修复 /start 引导
+- [x] Milestone 3: 新建 /commit 命令
+- [x] Milestone 4: 新建 /push 命令
+- [x] Milestone 5: 移除 session-end 自动提交
 
 ## 阻塞点
 （无）

@@ -1,8 +1,18 @@
 {
-  "stage": "archived",
-  "taskId": "6-phase-pipeline-align",
+  "stage": "implement",
+  "taskId": "session-commands",
   "contractHash": "",
   "history": [
+    {
+      "stage": "plan",
+      "entered": "2026-06-09T10:00:00.000Z",
+      "note": "PRD 编写阶段：会话命令体系重构（/start引导 + /end注册 + /commit隐私扫描 + /push分支管理）"
+    },
+    {
+      "stage": "understand",
+      "entered": "2026-06-09T04:16:57.250Z",
+      "note": "session-start 自动重置：上一需求已归档，准备新需求"
+    },
     {
       "stage": "archived",
       "entered": "2026-06-09T04:15:53.828Z",

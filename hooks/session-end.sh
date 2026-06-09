@@ -1,6 +1,7 @@
 #!/bin/bash
 # Shared session-end hook (assistant-agnostic)
-# Generates dialog summary, then auto-commits
+# Generates dialog summary only
+# Note: git commit/push is now handled by /commit and /push commands
 #
 # Environment variables (set by adapter):
 #   PROJECT_DIR     — project root (default: pwd)
@@ -21,20 +22,5 @@ if [ -f "$SCRIPT_DIR/generate-dialog-summary.sh" ]; then
   bash "$SCRIPT_DIR/generate-dialog-summary.sh" 2>/dev/null || true
 fi
 
-# Step 2: Check for uncommitted changes
-CHANGES=$(git status --porcelain "$PROMPTS_SUBDIR/" logs/ 2>/dev/null)
-
-if [ -z "$CHANGES" ]; then
-  echo "No uncommitted changes."
-  exit 0
-fi
-
-# Step 3: Auto-commit
-git add "$PROMPTS_SUBDIR/" logs/
-git commit -m "auto: update memory on session end" 2>/dev/null
-
-if [ $? -eq 0 ]; then
-  echo "Changes committed (sessions.md + state.md)."
-else
-  echo "No changes to commit."
-fi
+# Git commit/push is now handled by /commit and /push commands
+# No auto-commit on session end
