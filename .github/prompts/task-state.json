@@ -5,6 +5,11 @@
   "history": [
     {
       "stage": "archived",
+      "entered": "2026-06-09T04:15:53.828Z",
+      "note": "/end 归档：6阶段流水线对齐 + /end slash命令 + SSH修复 + npm v1.5.4"
+    },
+    {
+      "stage": "archived",
       "entered": "2026-06-09T02:54:42.625Z",
       "note": "pmcp end 归档：6阶段流水线对齐"
     },

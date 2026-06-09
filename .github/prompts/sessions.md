@@ -27,4 +27,11 @@
 - **关键决策**: 阶段名从3阶段扩展为6阶段(understand/plan/implement/test/review/publish/archived)，兼容旧阶段名；/end只管审查+归档，git commit由session-end hook自动处理
 - **消息数**: 20+ 条
 
+## 2026-06-09 上午
+
+- **做了什么**: /end 改为 slash 命令 + SSH 代理修复 + npm v1.5.4 发布
+- **改动**: skills/end.md v2, README.md, ~/.ssh/config, package.json (v1.5.4)
+- **关键决策**: /end 作为 skill 文件（AI 读取执行），pmcp end CLI 降级为备选；SSH 配置 %%h 修正为 %h
+- **消息数**: 10+ 条
+
 
