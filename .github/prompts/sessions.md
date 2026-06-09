@@ -46,4 +46,11 @@
 - **改动**: (无代码修改)
 - **消息数**: 1 条
 
+## 2026-06-09 下午
+
+- **做了什么**: 会话命令体系重构 — /commit /push + 移除自动 git 提交
+- **改动**: commands/end.md, commands/commit.md, commands/push.md, commands/start.md, skills/end.md, skills/commit.md, skills/push.md, skills/start.md, session-end.cjs, hooks/session-end.sh, normalize-log.cjs, plans/session-commands.prd.md, plans/session-commands.plan.md, state.md, task-state.json
+- **关键决策**: git commit/push 从自动 hook 拆分为用户主动触发的 /commit 和 /push；session-end 只保留日志摘要
+- **消息数**: 20+ 条
+
 

@@ -1,8 +1,18 @@
 {
-  "stage": "implement",
-  "taskId": "session-commands",
+  "stage": "archived",
+  "taskId": "",
   "contractHash": "",
   "history": [
+    {
+      "stage": "archived",
+      "entered": "2026-06-09T12:00:00.000Z",
+      "note": "/end 归档：会话命令体系重构 — /commit /push + 移除自动 git 提交"
+    },
+    {
+      "stage": "implement",
+      "entered": "2026-06-09T11:00:00.000Z",
+      "note": "实施阶段：5 个里程碑全部完成"
+    },
     {
       "stage": "plan",
       "entered": "2026-06-09T10:00:00.000Z",
