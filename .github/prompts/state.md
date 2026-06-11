@@ -1,13 +1,10 @@
 # 项目状态
 
 ## 当前任务
-测试修复工作流（/test）— 全部完成
+（无活跃任务）
 
 ## 进度
-- [x] Milestone #1: /test 命令 + 诊断流程
-- [x] Milestone #2: 多轮失败检测 + 归档引导（test.md Step 6）
-- [x] Milestone #3: 阶段流转集成（/end 增加 test 阶段检查）
-- [x] 额外修复: config.ts findProjectRoot() 路径查找
+（无）
 
 ## 阻塞点
 （无）

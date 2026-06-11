@@ -5,6 +5,21 @@
   "history": [
     {
       "stage": "implement",
+      "entered": "2026-06-11T08:09:36.937Z",
+      "note": "Bug fix: generate-dialog-summary.sh 数据源修复"
+    },
+    {
+      "stage": "understand",
+      "entered": "2026-06-11T01:27:43.267Z",
+      "note": "session-start 自动重置：上一需求已归档，准备新需求"
+    },
+    {
+      "stage": "archived",
+      "entered": "2026-06-11T01:00:00.000Z",
+      "note": "/end 归档：/test 命令 — 测试阶段结构化修复流程"
+    },
+    {
+      "stage": "implement",
       "entered": "2026-06-11T00:30:00.000Z",
       "note": "开始实施：/test 命令 + 诊断流程"
     },
