@@ -1,6 +1,6 @@
 #!/bin/bash
 # 会话摘要生成器（assistant-agnostic）
-# 读取 session 的用户消息 + git diff，生成决策级摘要
+# 从 logs/dialogs/*.jsonl 读取工具调用记录，生成决策级摘要
 # 写入 sessions.md 和 state.md
 #
 # 环境变量（由 adapter 设置）：
@@ -13,7 +13,6 @@ set -euo pipefail
 export PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
 export PROMPTS_SUBDIR="${PROMPTS_SUBDIR:-.github/prompts}"
 export PROMPTS_DIR="$PROJECT_DIR/$PROMPTS_SUBDIR"
-export SESSIONS_DIR="$PROJECT_DIR/logs/sessions"
 export DIALOGS_DIR="$PROJECT_DIR/logs/dialogs"
 export SESSION_ID="${SESSION_ID:-unknown}"
 
@@ -22,72 +21,69 @@ mkdir -p "$DIALOGS_DIR"
 node -e "
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 const PROJECT_DIR = process.env.PROJECT_DIR;
 const PROMPTS_DIR = process.env.PROMPTS_DIR;
-const SESSIONS_DIR = process.env.SESSIONS_DIR;
+const DIALOGS_DIR = process.env.DIALOGS_DIR;
 const SESSION_ID = process.env.SESSION_ID;
+const PROMPTS_SUBDIR = process.env.PROMPTS_SUBDIR;
 
 const SESSIONS_FILE = path.join(PROMPTS_DIR, 'sessions.md');
 const STATE_FILE = path.join(PROMPTS_DIR, 'state.md');
 
-// ─── 读取用户消息 ─────────────────────────────────────────────────────
-const promptFile = path.join(SESSIONS_DIR, SESSION_ID + '.prompts.jsonl');
-let userMessages = [];
-if (fs.existsSync(promptFile)) {
-  const lines = fs.readFileSync(promptFile, 'utf8').split('\n').filter(l => l.trim());
+// ─── 从 logs/dialogs/*.jsonl 读取工具调用记录 ────────────────────────
+const today = new Date().toISOString().slice(0, 10);
+const jsonlFile = path.join(DIALOGS_DIR, today + '.jsonl');
+
+let toolCalls = [];
+if (fs.existsSync(jsonlFile) && fs.statSync(jsonlFile).size > 0) {
+  const lines = fs.readFileSync(jsonlFile, 'utf8').split('\n').filter(l => l.trim());
   for (const line of lines) {
     try {
       const d = JSON.parse(line);
-      if (d.prompt) userMessages.push(d.prompt);
+      // 如果指定了 SESSION_ID，只取当前 session 的记录
+      if (SESSION_ID !== 'unknown' && d.session && d.session !== SESSION_ID) continue;
+      toolCalls.push(d);
     } catch {}
   }
 }
 
-// 无用户消息则跳过（自动化 session）
-if (userMessages.length === 0) {
+// 无工具调用则跳过
+if (toolCalls.length === 0) {
   process.exit(0);
 }
 
-// ─── 获取变更文件 ──────────────────────────────────────────────────────
-let changedFiles = [];
-try {
-  const status = execSync('git status --porcelain', {
-    cwd: PROJECT_DIR,
-    encoding: 'utf8',
-    timeout: 5000
-  }).trim();
-  if (status) {
-    changedFiles = status.split('\n')
-      .map(l => l.slice(3).trim())
-      .filter(f => f && !f.startsWith('logs/') && !f.startsWith(PROMPTS_SUBDIR));
-  }
-} catch {}
+// ─── 从工具调用中提取变更文件 ─────────────────────────────────────────
+const changedFiles = [...new Set(
+  toolCalls
+    .filter(c => ['Edit', 'Write', 'NotebookEdit'].includes(c.tool) && c.target)
+    .map(c => c.target)
+)];
 
-// 也检查今天的 git commits
-try {
-  const log = execSync('git log --since=\"today\" --name-only --oneline', {
-    cwd: PROJECT_DIR,
-    encoding: 'utf8',
-    timeout: 5000
-  }).trim();
-  if (log) {
-    const commitFiles = log.split('\n')
-      .filter(l => l && !l.match(/^[a-f0-9]{7,}/) && !l.startsWith('logs/') && !l.startsWith(PROMPTS_SUBDIR));
-    changedFiles = [...new Set([...changedFiles, ...commitFiles])];
-  }
-} catch {}
+// ─── 从工具调用中提取活动摘要 ─────────────────────────────────────────
+const editFiles = toolCalls
+  .filter(c => ['Edit', 'Write'].includes(c.tool) && c.target)
+  .map(c => c.target)
+  .filter((f, i, arr) => arr.indexOf(f) === i)
+  .slice(0, 8);
 
-// ─── 生成决策级摘要 ──────────────────────────────────────────────────
-const firstMsg = userMessages[0];
-const cleanMsg = firstMsg
-  .replace(/^(你好|hi|hello|hey|嗨|哈喽)[,，\s]*/i, '')
-  .replace(/^(请|帮我|帮忙|麻烦|能不能|可以帮我)[,，\s]*/i, '')
-  .trim();
-const userQuestion = cleanMsg.length > 0 ? cleanMsg.slice(0, 200) : firstMsg.slice(0, 200);
+const bashCommands = toolCalls
+  .filter(c => c.tool === 'Bash' && c.target)
+  .map(c => c.target.slice(0, 100))
+  .slice(0, 5);
 
-// 生成改动列表（最多 5 个文件）
+// 生成"做了什么"描述
+let activityDesc = '';
+if (editFiles.length > 0) {
+  activityDesc = '修改 ' + editFiles.slice(0, 3).join(', ');
+  if (editFiles.length > 3) activityDesc += ' 等 ' + editFiles.length + ' 个文件';
+} else if (bashCommands.length > 0) {
+  activityDesc = '执行命令: ' + bashCommands[0].slice(0, 60);
+} else {
+  activityDesc = '对话（' + toolCalls.length + ' 次工具调用）';
+}
+
+// 生成改动列表
 let changesDesc = '';
 if (changedFiles.length > 0) {
   const displayFiles = changedFiles.slice(0, 5);
@@ -99,8 +95,6 @@ if (changedFiles.length > 0) {
 
 // ─── 写入 sessions.md ────────────────────────────────────────────────
 const now = new Date();
-const timeStr = now.toISOString().replace('T', ' ').replace('Z', '').replace(/\.\d+/, '');
-const today = now.toISOString().slice(0, 10);
 const hour = now.getHours();
 const period = hour < 12 ? '上午' : hour < 18 ? '下午' : '晚上';
 
@@ -108,9 +102,9 @@ const sessionBlock = [
   '',
   '## ' + today + ' ' + period,
   '',
-  '- **做了什么**: ' + userQuestion,
+  '- **做了什么**: ' + activityDesc,
   changesDesc ? '- **改动**: ' + changesDesc : '- **改动**: (无代码修改)',
-  '- **消息数**: ' + userMessages.length + ' 条',
+  '- **消息数**: ' + toolCalls.length + ' 条',
   ''
 ].join('\n');
 
@@ -169,19 +163,17 @@ if (fs.existsSync(STATE_FILE)) {
 }
 
 // 更新"最近会话"部分
-const lastSessionLine = '- ' + today + ' ' + period + ': ' + userQuestion.slice(0, 100);
+const lastSessionLine = '- ' + today + ' ' + period + ': ' + activityDesc.slice(0, 100);
 if (stateContent.includes('## 最近会话')) {
-  // 替换最近会话部分
   stateContent = stateContent.replace(
     /## 最近会话\n[\s\S]*?(?=\n## |$)/,
     '## 最近会话\n' + lastSessionLine + '\n'
   );
 } else {
-  // 追加最近会话部分
   stateContent = stateContent.trimEnd() + '\n\n## 最近会话\n' + lastSessionLine + '\n';
 }
 
 fs.writeFileSync(STATE_FILE, stateContent);
 
-console.log('会话摘要已生成: ' + today + ' ' + period + ' (' + userMessages.length + ' 条消息, ' + changedFiles.length + ' 个文件)');
+console.log('会话摘要已生成: ' + today + ' ' + period + ' (' + toolCalls.length + ' 次调用, ' + changedFiles.length + ' 个文件修改)');
 "
