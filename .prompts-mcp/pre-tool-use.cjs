@@ -136,12 +136,16 @@ process.stdin.on('end', () => {
       process.exit(0);
     }
 
-    // test: test files + task-state.json writable
+    // test: test files + task-state.json + plans/ writable
     if (stage === 'test') {
       // Allow test files, spec files, and common test patterns
       if (normalizedFile.includes('.test.') || normalizedFile.includes('.spec.') ||
           normalizedFile.includes('__tests__') || normalizedFile.includes('/test/') ||
           normalizedFile.includes('/tests/')) {
+        process.exit(0);
+      }
+      // Allow plans/ for fix plans (structured repair workflow)
+      if (normalizedFile.includes('/plans/')) {
         process.exit(0);
       }
       // Also allow IN scope (implementation fixes during test)

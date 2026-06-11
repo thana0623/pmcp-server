@@ -1,8 +1,23 @@
 {
-  "stage": "archived",
+  "stage": "implement",
   "taskId": "",
   "contractHash": "",
   "history": [
+    {
+      "stage": "implement",
+      "entered": "2026-06-11T00:30:00.000Z",
+      "note": "开始实施：/test 命令 + 诊断流程"
+    },
+    {
+      "stage": "plan",
+      "entered": "2026-06-11T00:00:00.000Z",
+      "note": "PRD 编写：测试修复工作流（/test）"
+    },
+    {
+      "stage": "understand",
+      "entered": "2026-06-09T06:22:24.899Z",
+      "note": "session-start 自动重置：上一需求已归档，准备新需求"
+    },
     {
       "stage": "archived",
       "entered": "2026-06-09T12:00:00.000Z",

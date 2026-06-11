@@ -9,6 +9,26 @@
 - stage 为空、`understand` 或 `archived` → 提示"当前没有活跃任务，无需归档"，停止。
 - 有活跃任务 → 继续。记录 taskId 和 stage。
 
+### Step 1.5: 检查未解决的 bug（test 阶段）
+
+如果 stage 是 `test`，读取 `.github/prompts/state.md` 的"发现的问题"。
+
+- 有未标记 ✅ 的 bug → 输出警告：
+
+```
+## ⚠️ 发现未解决的 bug
+
+以下问题尚未修复：
+- <bug 1>
+- <bug 2>
+
+归档后这些问题会保留在"发现的问题"中，下一轮会话可以看到。
+确认归档？(y/n)
+```
+
+- 用户确认 → 继续
+- 用户拒绝 → 停止，建议继续用 /test 修复
+
 ### Step 2: 检查 Git 变更
 
 运行 `git status --short`。

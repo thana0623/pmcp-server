@@ -34,11 +34,47 @@ function loadEnv(): void {
 
 loadEnv();
 
+// ─── 项目根目录查找 ────────────────────────────────────────────────────
+
+/**
+ * 从 startDir 向上遍历，查找项目根目录。
+ * 策略 1: 找 .pmcp-root 标记文件
+ * 策略 2: 找 .github/prompts/context.md
+ * 找不到则回退到 startDir。
+ */
+function findProjectRoot(startDir: string): string {
+  const promptsSubDir = process.env.PROMPTS_SUBDIR || '.github/prompts';
+
+  // Strategy 1: .pmcp-root marker
+  let dir = startDir;
+  while (true) {
+    if (fs.existsSync(path.join(dir, '.pmcp-root'))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  // Strategy 2: .github/prompts/context.md
+  dir = startDir;
+  while (true) {
+    if (fs.existsSync(path.join(dir, promptsSubDir, 'context.md'))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return startDir;
+}
+
 // ─── 配置项 ───────────────────────────────────────────────────────────
 
 export const config = {
   /** 目标项目根目录 */
-  projectRoot: process.env.PROJECT_ROOT || process.cwd(),
+  projectRoot: process.env.PROJECT_ROOT || findProjectRoot(process.cwd()),
 
   /** prompts 文件存放的子目录（相对于项目根目录） */
   promptsSubDir: process.env.PROMPTS_SUBDIR || '.github/prompts',
