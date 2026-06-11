@@ -1,8 +1,13 @@
 {
-  "stage": "implement",
+  "stage": "archived",
   "taskId": "",
   "contractHash": "",
   "history": [
+    {
+      "stage": "archived",
+      "entered": "2026-06-11T08:30:25.587Z",
+      "note": "/end 归档：generate-dialog-summary.sh 数据源修复 + v1.5.5"
+    },
     {
       "stage": "implement",
       "entered": "2026-06-11T08:09:36.937Z",

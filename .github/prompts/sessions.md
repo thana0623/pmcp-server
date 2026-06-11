@@ -77,4 +77,11 @@
 - **改动**: (无代码修改)
 - **消息数**: 4 条
 
+## 2026-06-11 下午
+
+- **做了什么**: 修复 generate-dialog-summary.sh 数据源 + v1.5.5 发布 + 6 项目 hook 同步
+- **改动**: hooks/generate-dialog-summary.sh, package.json, package-lock.json, .github/prompts/*
+- **关键决策**: 数据源从 logs/sessions/*.prompts.jsonl 改为 logs/dialogs/*.jsonl（工具调用记录）；批量同步到所有 pmcp 项目
+- **消息数**: 15+ 条
+
 

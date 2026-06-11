@@ -13,4 +13,4 @@
 - [轮次 1] bootstrap 加载时 context.md 路径找不到（2026-06-11）→ ✅ 已修复：config.ts 添加 findProjectRoot()
 
 ## 最近会话
-- 2026-06-08 晚上: 文档清理 + 6 阶段流水线重写（已归档）
+- 2026-06-11 下午: 修复 generate-dialog-summary.sh 数据源 + v1.5.5 发布 + 6 项目 hook 同步
