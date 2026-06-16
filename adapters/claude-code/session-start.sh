@@ -185,13 +185,6 @@ if [ -f "$STATE_FILE" ]; then
   esac
 fi
 
-# Step 1: Process any unprocessed logs from previous sessions
-# This ensures recent-5.md and summary-10.md are up-to-date even if
-# the previous session's SessionEnd hook didn't run (crash, force quit, etc.)
-HOOKS_DIR="$PROJECT_DIR/.prompts-mcp/hooks"
-if [ -f "$HOOKS_DIR/process-logs.sh" ]; then
-  bash "$HOOKS_DIR/process-logs.sh" 2>/dev/null || true
-fi
 
 # Step 1.5: Refresh context.md with current project state
 # Re-scans project structure, languages, frameworks, package manager

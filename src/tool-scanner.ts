@@ -282,7 +282,7 @@ const ONBOARDING_TEMPLATES: Record<string, OnboardingStep[]> = {
     {
       title: '验证效果',
       content: '确认输出了项目上下文。',
-      verify: '输出包含 context.md、recent-5.md 等内容',
+      verify: '输出包含 context.md 等内容',
     },
   ],
 };
@@ -530,7 +530,7 @@ const SCENE_DEFINITIONS: Record<DevScene, SceneDefinition> = {
     tips: [
       '用 `codegraph_trace` 追踪调用链定位问题',
       '用 `tsc --noEmit` 排除类型错误',
-      '查看 `recent-5.md` 了解最近的变更历史',
+      '查看 `HOT_STATE.md` 了解上一个会话的状态',
     ],
   },
   reviewing: {

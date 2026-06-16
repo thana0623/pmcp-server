@@ -8,7 +8,7 @@
  *   - init_prompts       - 扫描项目，自动生成原始 prompts 体系
  *   - bootstrap          - 一键启动，自动读取传递链 + 模块记录
  *   - confirm_direction  - 方向确认（AI 追问后保存目标/约束/验收到 direction.md）
- *   - log_dialog         - 记录对话日志（传递链 + 自动 git commit）
+ *   - log_dialog         - 记录对话日志（todos.md + 自动 git commit）
  *   - log_module         - 记录模块修改（目录式）
  *   - read_module        - 修改前读取模块记录
  *   - update_todos       - 更新待办事项
@@ -93,7 +93,7 @@ class PromptsMcpServer {
         {
           name: 'init_prompts',
           description:
-            '【初始化】扫描目标项目，自动生成原始 prompts 体系（context.md / recent-5.md / summary-10.md / todos.md / dev-rules.md / modules/）。已有文件不会覆盖。',
+            '【初始化】扫描目标项目，自动生成 prompts 体系（context.md / todos.md / modules/）。已有文件不会覆盖。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -107,7 +107,7 @@ class PromptsMcpServer {
         {
           name: 'bootstrap',
           description:
-            '【一键启动】自动读取传递链（context.md + daily + recent-5 + summary-10 + todos + 模块记录）。智能体启动时第一步调用。',
+            '【一键启动】自动读取项目上下文（context.md + todos + 模块记录）。智能体启动时第一步调用。',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -144,7 +144,7 @@ class PromptsMcpServer {
         {
           name: 'log_dialog',
           description:
-            '【记录日志】记录一次对话到传递链（daily + recent-5 + summary-10 + log-state.json）。',
+            '【记录日志】记录对话日志，追加待办到 todos.md。',
           inputSchema: {
             type: 'object',
             properties: {
@@ -240,7 +240,7 @@ class PromptsMcpServer {
         {
           name: 'auto_start',
           description:
-            '【自动启动】会话开始时第一个调用。一键加载全部上下文（context + daily + recent-5 + summary-10 + todos + dev-rules + 用户规则 + 模块记录）。每次新对话开始时必须调用此工具。',
+            '【自动启动】会话开始时第一个调用。一键加载全部上下文（context + todos + 用户规则 + 模块记录）。每次新对话开始时必须调用此工具。',
           inputSchema: {
             type: 'object',
             properties: {},
@@ -672,7 +672,7 @@ class PromptsMcpServer {
 
     try {
       const promptsDir = getPromptsDir();
-      const { entryId, today } = logDialog(promptsDir, {
+      const { today } = logDialog(promptsDir, {
         title,
         request,
         changes,
@@ -682,7 +682,7 @@ class PromptsMcpServer {
 
       let commitInfo = '';
       if (config.autoCommit && isGitRepo()) {
-        const commitMsg = `dialog: Entry-${String(entryId).padStart(3, '0')} — ${title}`;
+        const commitMsg = `dialog: ${title}`;
         const commitResult = gitAutoCommit(commitMsg);
         if (commitResult.success) {
           commitInfo = `\n- git commit: ✅ ${commitResult.hash}`;
@@ -695,7 +695,11 @@ class PromptsMcpServer {
         content: [
           {
             type: 'text',
-            text: `✅ 对话日志已记录。\n\n- Entry-${String(entryId).padStart(3, '0')}\n- 日期: ${today}\n- 标题: ${title}\n- todos: 已追加\n- 💡 daily/recent-5/summary-10 将在 session-end 时统一生成${commitInfo}`,
+            text: `✅ 对话日志已记录。
+
+- 日期: ${today}
+- 标题: ${title}
+- todos: 已追加${commitInfo}`,
           },
         ],
       };

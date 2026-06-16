@@ -2,7 +2,7 @@
  * prompts-generator.ts
  *
  * 自动生成项目 prompts 体系。
- * 扫描目标项目结构，生成 context.md / recent-5.md / summary-10.md / todos.md / modules/ 等。
+ * 扫描目标项目结构，生成 context.md / todos.md / modules/ 等。
  * 同时生成开发规范 prompt（前后端、环境配置等），用户可外部补充。
  */
 
@@ -346,8 +346,7 @@ ${
 
 ## 4. 对话日志索引
 
-- 最近 5 条动态窗口: ${config.promptsSubDir}/recent-5.md
-- 近 10 条 Stateful 摘要: ${config.promptsSubDir}/summary-10.md
+- 会话热状态: HOT_STATE.md（/loop 定时更新 + session-end 兜底）
 - 模块记录: ${config.promptsSubDir}/modules/
 - 待办事项: ${config.promptsSubDir}/todos.md
 `;
@@ -453,43 +452,14 @@ export interface InitResult {
 
 // ─── 4 文档模板 ──────────────────────────────────────────────────────
 
-function generateStateMd(): string {
-  return `# 项目状态
 
-## 当前任务
-（无活跃任务）
 
-## 进度
-（无）
 
-## 阻塞点
-（无）
 
-## 发现的问题
-（测试循环中发现的 bug 和新需求记录在这里，不立刻处理）
 
-## 最近会话
-（无）
-`;
-}
-
-function generateSessionsMd(): string {
-  return `# 会话记录
-
-> 由 session-end hook 自动维护。保留最近 3 天。
-`;
-}
-
-function generateDecisionsMd(): string {
-  return `# 关键决策
-
-> 只记录"为什么"，不记录"做了什么"。
-> 格式：日期 + 决策 + 原因
-`;
-}
 
 /**
- * 在目标项目中初始化 prompts 体系（4 文档模型）
+ * 在目标项目中初始化 prompts 体系
  */
 export function initPrompts(projectRoot: string): InitResult {
   const errors: string[] = [];
@@ -512,13 +482,10 @@ export function initPrompts(projectRoot: string): InitResult {
     }
   }
 
-  // 生成文件（4 文档模型）
+  // 生成文件
   const files: { name: string; content: string }[] = [
     { name: 'context.md', content: generateContextMd(info) },
-    { name: 'state.md', content: generateStateMd() },
-    { name: 'sessions.md', content: generateSessionsMd() },
-    { name: 'decisions.md', content: generateDecisionsMd() },
-  ];
+              ];
 
   for (const file of files) {
     const filePath = path.join(promptsDir, file.name);

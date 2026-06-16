@@ -103,7 +103,7 @@ Commands:
   refresh-context                 刷新 context.md 技术栈（保留用户编辑）
   end                             结束本轮开发：敏感审查 + 归档任务
   confirm --goal <text>            方向确认（AI 追问后保存到 direction.md）
-  log --title <t> --request <r>   记录对话日志（session-end 时自动归档到 sessions.md）
+  log --title <t> --request <r>   记录对话日志（追加到 todos.md）
   module-log <name> --change <c>  记录模块修改
   module-read <name>              读取模块记录
   module-list                     列出所有模块记录
@@ -916,7 +916,7 @@ async function main(): Promise<void> {
 
       printSeparator('记录对话日志');
       const promptsDir = getPromptsDir();
-      const { entryId, today } = logDialog(promptsDir, {
+      const { today } = logDialog(promptsDir, {
         title,
         request,
         changes,
@@ -925,8 +925,8 @@ async function main(): Promise<void> {
       });
 
       if (todos.length > 0) console.log('✅ todos.md 已追加');
-      console.log(`\n📝 Entry-${String(entryId).padStart(3, '0')} (${today}): ${title}`);
-      console.log('💡 daily/recent-5/summary-10 将在 session-end 时由 Shell writer 统一生成');
+      console.log(`\n📝  (${today}): ${title}`);
+      
       break;
     }
 
@@ -1401,27 +1401,9 @@ Examples:
 
       const projectRoot = getProjectRoot();
       const promptsDir = getPromptsDir();
-      const statePath = path.join(promptsDir, 'task-state.json');
 
-      // Step 1: 检查是否有活跃任务
-      let taskState: any = null;
-      try {
-        taskState = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
-      } catch {
-        // No task-state.json
-      }
-
-      if (!taskState || !taskState.stage || taskState.stage === 'archived') {
-        console.log('当前没有活跃任务，无需归档。');
-        break;
-      }
-
-      const taskId = taskState.taskId || 'unnamed';
-      const stage = taskState.stage;
-      console.log(`任务: ${taskId}（阶段: ${stage}）\n`);
-
-      // Step 2: 敏感信息审查
-      console.log('[1/4] 敏感信息审查...\n');
+      // Step 1: 敏感信息审查
+      console.log('[1/2] 敏感信息审查...\n');
       try {
         const { scanSecrets } = await import('./secret-scanner.js');
         const auditResult = scanSecrets(projectRoot);
@@ -1434,14 +1416,12 @@ Examples:
         console.log(`⚠️ 审查跳过: ${err.message || err}`);
       }
 
-      // Step 3: 归档任务
-      console.log('\n[2/4] 归档任务...\n');
-
+      // Step 2: 归档 direction.md / focus-spec.md
+      console.log('\n[2/2] 归档方向文件...\n');
       const directionPath = path.join(promptsDir, 'direction.md');
       const specPath = path.join(promptsDir, 'focus-spec.md');
       const archiveDir = path.join(promptsDir, 'focus-spec-history');
 
-      // Find the source file (direction.md or focus-spec.md)
       let sourcePath = '';
       if (fs.existsSync(directionPath)) {
         sourcePath = directionPath;
@@ -1451,85 +1431,28 @@ Examples:
 
       if (sourcePath) {
         const today = new Date().toISOString().slice(0, 10);
-        const archiveName = `${taskId}-${today}.md`;
+        const archiveName = `${today}-archive.md`;
         const archivePath = path.join(archiveDir, archiveName);
-
         fs.mkdirSync(archiveDir, { recursive: true });
         fs.copyFileSync(sourcePath, archivePath);
         fs.unlinkSync(sourcePath);
         console.log(`  + focus-spec-history/${archiveName}`);
       } else {
-        console.log('  = 无 direction.md 或 focus-spec.md，跳过归档');
+        console.log('  = 无 direction.md 或 focus-spec.md，跳过');
       }
 
-      // Update task-state.json → archived
-      taskState.stage = 'archived';
-      taskState.history = taskState.history || [];
-      taskState.history.unshift({
-        stage: 'archived',
-        entered: new Date().toISOString(),
-        note: 'pmcp end 归档',
-      });
-      fs.writeFileSync(statePath, JSON.stringify(taskState, null, 2) + '\n');
-      console.log('  + task-state.json → archived');
-
-      // Step 4: 更新 state.md（清空当前任务，保留"发现的问题"）
-      console.log('\n[3/4] 更新 state.md...\n');
-
-      const stateMdPath = path.join(promptsDir, 'state.md');
-      if (fs.existsSync(stateMdPath)) {
-        let content = fs.readFileSync(stateMdPath, 'utf-8');
-
-        // Clear "当前任务" section
-        content = content.replace(
-          /## 当前任务\n[\s\S]*?(?=\n## )/,
-          '## 当前任务\n（无活跃任务）\n\n',
-        );
-
-        // Clear "进度" section
-        content = content.replace(/## 进度\n[\s\S]*?(?=\n## )/, '## 进度\n（无）\n\n');
-
-        // Clear "阻塞点" section
-        content = content.replace(/## 阻塞点\n[\s\S]*?(?=\n## )/, '## 阻塞点\n（无）\n\n');
-
-        // Preserve "发现的问题" section — don't touch it
-
-        fs.writeFileSync(stateMdPath, content, 'utf-8');
-        console.log('  = state.md 已更新（保留"发现的问题"）');
-      }
-
-      // Step 5: 更新 sessions.md
-      console.log('\n[4/4] 更新 sessions.md...\n');
-
-      const sessionsPath = path.join(promptsDir, 'sessions.md');
-      if (fs.existsSync(sessionsPath)) {
-        const today = new Date().toISOString().slice(0, 10);
-        const timeOfDay =
-          new Date().getHours() < 12 ? '上午' : new Date().getHours() < 18 ? '下午' : '晚上';
-        const entry = `\n## ${today} ${timeOfDay}\n\n- **做了什么**: 归档任务「${taskId}」\n- **改动**: pmcp end 归档\n- **消息数**: —\n`;
-
-        let sessions = fs.readFileSync(sessionsPath, 'utf-8');
-        sessions += entry;
-        fs.writeFileSync(sessionsPath, sessions, 'utf-8');
-        console.log('  + sessions.md 已追加');
-      }
-
-      // Output summary
       console.log('\n' + '═'.repeat(60));
       console.log('  本轮开发完成');
       console.log('═'.repeat(60));
       console.log('');
-      console.log(`  任务: ${taskId}`);
-      console.log('  敏感审查: 通过');
       if (sourcePath) {
-        const today = new Date().toISOString().slice(0, 10);
-        console.log(`  归档: focus-spec-history/${taskId}-${today}.md`);
+        console.log('  归档: focus-spec-history/');
       }
-      console.log('');
-      console.log('  描述新需求开始下一轮，或 /clear 清理上下文。');
+      console.log('  描述新需求开始下一轮。');
       console.log('');
       break;
     }
+
 
     default: {
       console.error(`未知命令: ${command}`);
