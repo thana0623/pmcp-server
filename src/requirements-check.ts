@@ -81,8 +81,9 @@ export function confirmDirection(input: DirectionInput): DirectionResult {
     fs.mkdirSync(promptsDir, { recursive: true });
     fs.writeFileSync(filePath, content, 'utf-8');
     return { success: true, filePath, content };
-  } catch (err: any) {
-    return { success: false, error: err.message || String(err) };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
   }
 }
 

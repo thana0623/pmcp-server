@@ -4,6 +4,8 @@ tests/
 build/__tests__/
 *.test.*
 *.spec.*
+*.map
+*.d.ts.map
 .github/
 .claude/
 logs/

@@ -9,6 +9,17 @@ import * as path from 'node:path';
 
 // ─── .env 加载 ────────────────────────────────────────────────────────
 
+/** 允许从 .env 加载的 key 白名单，防止恶意项目注入任意环境变量 */
+const ALLOWED_ENV_KEYS = new Set([
+  'PROJECT_ROOT',
+  'PROMPTS_SUBDIR',
+  'ASSISTANT',
+  'MCP_SERVER_NAME',
+  'MCP_SERVER_VERSION',
+  'AUTO_COMMIT',
+  'PMCP_SKILLS_DIR',
+]);
+
 function loadEnv(): void {
   // 如果通过 --env-file 已经加载，跳过
   if (process.env._ENV_LOADED) return;
@@ -22,6 +33,8 @@ function loadEnv(): void {
       const eqIdx = trimmed.indexOf('=');
       if (eqIdx === -1) continue;
       const key = trimmed.slice(0, eqIdx).trim();
+      // 只加载白名单内的 key，防止恶意 .env 注入 PATH 等系统变量
+      if (!ALLOWED_ENV_KEYS.has(key)) continue;
       const val = trimmed.slice(eqIdx + 1).trim();
       if (!(key in process.env)) {
         process.env[key] = val;
@@ -100,6 +113,16 @@ export const config = {
 };
 
 // ─── 路径辅助函数 ─────────────────────────────────────────────────────
+
+/**
+ * 校验名称安全性，防止路径穿越攻击。
+ * 拒绝包含 /、\、.. 的名称。
+ */
+export function validateName(name: string): void {
+  if (!name || /[/\\]/.test(name) || name.includes('..')) {
+    throw new Error(`Invalid name: ${name}`);
+  }
+}
 
 export function getProjectRoot(): string {
   return config.projectRoot;

@@ -28,7 +28,7 @@ import {
 } from './config.js';
 import { initPrompts } from './prompts-generator.js';
 import { readModuleLog, listModuleLogs, appendModuleLog } from './module-logger.js';
-import { confirmDirection, readDirection } from './requirements-check.js';
+import { confirmDirection } from './requirements-check.js';
 import { listSkills, initGlobalSkills, isGlobalSkillsInitialized } from './skills-manager.js';
 import { logDialog } from './dialog-logger.js';
 import * as fs from 'node:fs';
@@ -40,6 +40,132 @@ const __dirname = path.dirname(__filename);
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 
 const VALID_ASSISTANTS = ['claude-code', 'cline', 'cursor', 'windsurf', 'copilot', 'continue'];
+
+// ─── 参数解析辅助 ────────────────────────────────────────────────────
+
+interface ParsedProjectArgs {
+  projectRoot: string;
+  assistant: string;
+}
+
+/** 解析 --project-root 和 --assistant 参数，校验 assistant 有效性 */
+function parseProjectArgs(args: string[]): ParsedProjectArgs {
+  const rootIndex = args.indexOf('--project-root');
+  const projectRoot =
+    rootIndex !== -1
+      ? path.resolve(args[rootIndex + 1])
+      : args[1] && !args[1].startsWith('--')
+        ? path.resolve(args[1])
+        : getProjectRoot();
+
+  const assistIndex = args.indexOf('--assistant');
+  const assistant = assistIndex !== -1 ? args[assistIndex + 1] : 'claude-code';
+
+  if (!VALID_ASSISTANTS.includes(assistant)) {
+    console.error(`Unknown assistant: ${assistant}`);
+    console.error(`Valid options: ${VALID_ASSISTANTS.join(', ')}`);
+    process.exit(1);
+  }
+
+  return { projectRoot, assistant };
+}
+
+// ─── Settings 生成 ──────────────────────────────────────────────────
+
+/** 为 claude-code 生成 .claude/settings.json（合并已有配置） */
+function generateClaudeSettings(projectRoot: string): void {
+  const settingsDir = path.join(projectRoot, '.claude');
+  const settingsPath = path.join(settingsDir, 'settings.json');
+  fs.mkdirSync(settingsDir, { recursive: true });
+
+  let existingSettings: Record<string, unknown> = {};
+  if (fs.existsSync(settingsPath)) {
+    try {
+      existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const hookBase = '.prompts-mcp';
+  const newSettings = {
+    ...existingSettings,
+    hooks: {
+      ...((existingSettings.hooks as Record<string, unknown>) || {}),
+      UserPromptSubmit: [
+        {
+          hooks: [
+            {
+              type: 'command',
+              command: `node ${hookBase}/capture-prompt.cjs`,
+              timeout: 5,
+            },
+          ],
+        },
+      ],
+      PreToolUse: [
+        {
+          matcher: 'Write|Edit',
+          hooks: [
+            {
+              type: 'command',
+              command: `node ${hookBase}/pre-tool-use.cjs`,
+            },
+          ],
+        },
+      ],
+      SessionStart: [
+        {
+          matcher: '*',
+          hooks: [
+            {
+              type: 'command',
+              command: `node ${hookBase}/session-start.cjs`,
+              statusMessage: 'Loading project context...',
+            },
+          ],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: 'Write|Edit',
+          hooks: [
+            {
+              type: 'command',
+              command: `node ${hookBase}/post-write-scan.cjs`,
+              timeout: 10,
+            },
+          ],
+        },
+        {
+          matcher: '*',
+          hooks: [
+            {
+              type: 'command',
+              command: `node ${hookBase}/normalize-log.cjs`,
+              timeout: 5,
+            },
+          ],
+        },
+      ],
+      SessionEnd: [
+        {
+          matcher: '*',
+          hooks: [
+            {
+              type: 'command',
+              command: `node ${hookBase}/session-end.cjs`,
+              statusMessage: 'Finalizing session...',
+              timeout: 30,
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
+}
 
 // ─── 自动注册 ────────────────────────────────────────────────────────
 
@@ -158,22 +284,7 @@ async function main(): Promise<void> {
       // Auto-register pmcp as known command (silent, first-time only)
       autoRegister();
 
-      const rootIndex = args.indexOf('--project-root');
-      const projectRoot =
-        rootIndex !== -1
-          ? path.resolve(args[rootIndex + 1])
-          : args[1] && !args[1].startsWith('--')
-            ? path.resolve(args[1])
-            : getProjectRoot();
-
-      const assistIndex = args.indexOf('--assistant');
-      const assistant = assistIndex !== -1 ? args[assistIndex + 1] : 'claude-code';
-
-      if (!VALID_ASSISTANTS.includes(assistant)) {
-        console.error(`Unknown assistant: ${assistant}`);
-        console.error(`Valid options: ${VALID_ASSISTANTS.join(', ')}`);
-        process.exit(1);
-      }
+      const { projectRoot, assistant } = parseProjectArgs(args);
 
       printSeparator('Prompts MCP - 一键启动');
 
@@ -248,97 +359,7 @@ async function main(): Promise<void> {
 
         // 生成 .claude/settings.json
         if (assistant === 'claude-code') {
-          const settingsDir = path.join(projectRoot, '.claude');
-          const settingsPath = path.join(settingsDir, 'settings.json');
-          fs.mkdirSync(settingsDir, { recursive: true });
-
-          let existingSettings: any = {};
-          if (fs.existsSync(settingsPath)) {
-            try {
-              existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-            } catch {
-              /* ignore */
-            }
-          }
-
-          const hookBase = '.prompts-mcp';
-          const newSettings = {
-            ...existingSettings,
-            hooks: {
-              ...(existingSettings.hooks || {}),
-              UserPromptSubmit: [
-                {
-                  hooks: [
-                    {
-                      type: 'command',
-                      command: `node ${hookBase}/capture-prompt.cjs`,
-                      timeout: 5,
-                    },
-                  ],
-                },
-              ],
-              PreToolUse: [
-                {
-                  matcher: 'Write|Edit',
-                  hooks: [
-                    {
-                      type: 'command',
-                      command: `node ${hookBase}/pre-tool-use.cjs`,
-                    },
-                  ],
-                },
-              ],
-              SessionStart: [
-                {
-                  matcher: '*',
-                  hooks: [
-                    {
-                      type: 'command',
-                      command: `node ${hookBase}/session-start.cjs`,
-                      statusMessage: 'Loading project context...',
-                    },
-                  ],
-                },
-              ],
-              PostToolUse: [
-                {
-                  matcher: 'Write|Edit',
-                  hooks: [
-                    {
-                      type: 'command',
-                      command: `node ${hookBase}/post-write-scan.cjs`,
-                      timeout: 10,
-                    },
-                  ],
-                },
-                {
-                  matcher: '*',
-                  hooks: [
-                    {
-                      type: 'command',
-                      command: `node ${hookBase}/normalize-log.cjs`,
-                      timeout: 5,
-                    },
-                  ],
-                },
-              ],
-              SessionEnd: [
-                {
-                  matcher: '*',
-                  hooks: [
-                    {
-                      type: 'command',
-                      command: `node ${hookBase}/session-end.cjs`,
-                      statusMessage: 'Finalizing session...',
-                      timeout: 30,
-                    },
-                  ],
-                },
-              ],
-            },
-          };
-
-          fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
+          generateClaudeSettings(projectRoot);
         }
 
         console.log('\n✅ 初始化完成\n');
@@ -449,26 +470,7 @@ async function main(): Promise<void> {
       // Auto-register pmcp as known command (silent, first-time only)
       autoRegister();
 
-      const rootIndex = args.indexOf('--project-root');
-      // 支持三种写法:
-      //   pmcp setup                    -> 当前目录
-      //   pmcp setup /path/to/project   -> 位置参数
-      //   pmcp setup --project-root /path -> 命名参数
-      const projectRoot =
-        rootIndex !== -1
-          ? path.resolve(args[rootIndex + 1])
-          : args[1] && !args[1].startsWith('--')
-            ? path.resolve(args[1])
-            : getProjectRoot();
-
-      const assistIndex = args.indexOf('--assistant');
-      const assistant = assistIndex !== -1 ? args[assistIndex + 1] : 'claude-code';
-
-      if (!VALID_ASSISTANTS.includes(assistant)) {
-        console.error(`Unknown assistant: ${assistant}`);
-        console.error(`Valid options: ${VALID_ASSISTANTS.join(', ')}`);
-        process.exit(1);
-      }
+      const { projectRoot, assistant } = parseProjectArgs(args);
 
       printSeparator(`一键 Setup (${assistant})`);
 
@@ -562,99 +564,7 @@ async function main(): Promise<void> {
       // ── Step 5: 生成 .claude/settings.json ──
       if (assistant === 'claude-code') {
         console.log('\n[5/5] 生成 .claude/settings.json...\n');
-        const settingsDir = path.join(projectRoot, '.claude');
-        const settingsPath = path.join(settingsDir, 'settings.json');
-        fs.mkdirSync(settingsDir, { recursive: true });
-
-        // 保留已有配置，合并 hooks
-        let existingSettings: any = {};
-        if (fs.existsSync(settingsPath)) {
-          try {
-            existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-          } catch {
-            /* ignore */
-          }
-        }
-
-        // hooks 使用相对路径（相对于项目根目录）
-        const hookBase = '.prompts-mcp';
-        const newSettings = {
-          ...existingSettings,
-          hooks: {
-            ...(existingSettings.hooks || {}),
-            UserPromptSubmit: [
-              {
-                hooks: [
-                  {
-                    type: 'command',
-                    command: `node ${hookBase}/capture-prompt.cjs`,
-                    timeout: 5,
-                  },
-                ],
-              },
-            ],
-            PreToolUse: [
-              {
-                matcher: 'Write|Edit',
-                hooks: [
-                  {
-                    type: 'command',
-                    command: `node ${hookBase}/pre-tool-use.cjs`,
-                  },
-                ],
-              },
-            ],
-            SessionStart: [
-              {
-                matcher: '*',
-                hooks: [
-                  {
-                    type: 'command',
-                    command: `node ${hookBase}/session-start.cjs`,
-                    statusMessage: 'Loading project context...',
-                  },
-                ],
-              },
-            ],
-            PostToolUse: [
-              {
-                matcher: 'Write|Edit',
-                hooks: [
-                  {
-                    type: 'command',
-                    command: `node ${hookBase}/post-write-scan.cjs`,
-                    timeout: 10,
-                  },
-                ],
-              },
-              {
-                matcher: '*',
-                hooks: [
-                  {
-                    type: 'command',
-                    command: `node ${hookBase}/normalize-log.cjs`,
-                    timeout: 5,
-                  },
-                ],
-              },
-            ],
-            SessionEnd: [
-              {
-                matcher: '*',
-                hooks: [
-                  {
-                    type: 'command',
-                    command: `node ${hookBase}/session-end.cjs`,
-                    statusMessage: 'Finalizing session...',
-                    timeout: 30,
-                  },
-                ],
-              },
-            ],
-          },
-        };
-
-        fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
+        generateClaudeSettings(projectRoot);
         console.log('    + .claude/settings.json');
       } else {
         console.log(`\n[5/5] 跳过（${assistant} 不需要 .claude/settings.json）`);
@@ -1412,8 +1322,9 @@ Examples:
           console.error('\n❌ 发现敏感信息，请修复后重新运行 pmcp end');
           process.exit(1);
         }
-      } catch (err: any) {
-        console.log(`⚠️ 审查跳过: ${err.message || err}`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.log(`⚠️ 审查跳过: ${msg}`);
       }
 
       // Step 2: 归档 direction.md / focus-spec.md

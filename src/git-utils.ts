@@ -73,7 +73,7 @@ export function gitStatus(): GitStatusResult | null {
 /**
  * git add 文件
  */
-export function gitAdd(patterns: string[]): boolean {
+function gitAdd(patterns: string[]): boolean {
   try {
     const args = patterns.length > 0 ? patterns : ['-A'];
     execFileSync('git', ['add', ...args], {
@@ -89,7 +89,7 @@ export function gitAdd(patterns: string[]): boolean {
 /**
  * git commit
  */
-export function gitCommit(message: string): GitCommitResult {
+function gitCommit(message: string): GitCommitResult {
   try {
     execFileSync('git', ['commit', '-m', message], {
       cwd: config.projectRoot,
@@ -102,8 +102,9 @@ export function gitCommit(message: string): GitCommitResult {
     }).trim();
 
     return { success: true, hash, message };
-  } catch (e: any) {
-    return { success: false, error: e.message || String(e) };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, error: msg };
   }
 }
 

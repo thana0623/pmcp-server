@@ -14,6 +14,7 @@ import {
   getCustomSkillsDir,
   getGeneratedSkillsDir,
   getGlobalSkillsDir,
+  validateName,
 } from './config.js';
 import { parseFrontmatter } from './frontmatter.js';
 
@@ -39,6 +40,7 @@ function getSkillsDir(): string {
 }
 
 function getSkillPath(name: string): string {
+  validateName(name);
   return path.join(getSkillsDir(), `${name}.md`);
 }
 
@@ -68,12 +70,28 @@ export interface ListSkillsOptions {
   hasEcc?: boolean;
 }
 
+// ─── listSkills 缓存 ──────────────────────────────────────────────────
+const _skillsCache = new Map<string, { skills: Skill[]; time: number }>();
+const SKILLS_CACHE_TTL = 5000; // 5 秒
+
+/** 使 listSkills 缓存失效（在 skill 增删改后调用） */
+export function invalidateSkillsCache(): void {
+  _skillsCache.clear();
+}
+
 /**
  * 列出所有 skill（仅元数据，不含全文）
- * 从多个目录加载，按优先级去重
+ * 从多个目录加载，按优先级去重，结果缓存 5 秒
  * @param options.hasEcc - ECC 模式下排除与 ECC agents 重叠的 skills
  */
 export function listSkills(options?: ListSkillsOptions): Skill[] {
+  // 缓存检查
+  const cacheKey = options?.hasEcc ? 'ecc' : 'default';
+  const cached = _skillsCache.get(cacheKey);
+  if (cached && Date.now() - cached.time < SKILLS_CACHE_TTL) {
+    return cached.skills;
+  }
+
   const allSkills = new Map<string, Skill>();
   const excludeSet = new Set(EXCLUDED_SKILLS);
   if (options?.hasEcc) {
@@ -97,7 +115,12 @@ export function listSkills(options?: ListSkillsOptions): Skill[] {
     }
   }
 
-  return Array.from(allSkills.values());
+  const result = Array.from(allSkills.values());
+
+  // 写入缓存
+  _skillsCache.set(cacheKey, { skills: result, time: Date.now() });
+
+  return result;
 }
 
 /**
@@ -253,9 +276,11 @@ export function updateSkill(
     }
 
     fs.writeFileSync(filePath, raw, 'utf-8');
+    invalidateSkillsCache();
     return { success: true };
-  } catch (e: any) {
-    return { success: false, error: e.message };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, error: msg };
   }
 }
 
@@ -311,9 +336,11 @@ export function addSkill(
     ].join('\n');
 
     fs.writeFileSync(filePath, fileContent, 'utf-8');
+    invalidateSkillsCache();
     return { success: true };
-  } catch (e: any) {
-    return { success: false, error: e.message };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, error: msg };
   }
 }
 
@@ -387,8 +414,9 @@ export function initGlobalSkills(options?: {
     }
 
     return { success: true, created, errors };
-  } catch (e: any) {
-    errors.push(e.message);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    errors.push(msg);
     return { success: false, created, errors };
   }
 }

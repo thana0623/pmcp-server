@@ -44,7 +44,7 @@ export interface ProjectInfo {
 /**
  * 扫描项目根目录，检测技术栈信息
  */
-export function scanProject(projectRoot: string): ProjectInfo {
+function scanProject(projectRoot: string): ProjectInfo {
   const name = path.basename(projectRoot);
   const topDirs = getTopLevelDirs(projectRoot);
   const allFiles = getAllFiles(projectRoot);
@@ -477,8 +477,9 @@ export function initPrompts(projectRoot: string): InitResult {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-    } catch (e: any) {
-      errors.push(`创建目录失败: ${dir} - ${e.message}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(`创建目录失败: ${dir} - ${msg}`);
     }
   }
 
@@ -497,8 +498,9 @@ export function initPrompts(projectRoot: string): InitResult {
       } else {
         filesCreated.push(`${file.name} (已存在，跳过覆盖)`);
       }
-    } catch (e: any) {
-      errors.push(`写入文件失败: ${file.name} - ${e.message}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(`写入文件失败: ${file.name} - ${msg}`);
     }
   }
 

@@ -7,7 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getModulesDir } from './config.js';
+import { getModulesDir, validateName } from './config.js';
 
 // ─── 类型定义 ────────────────────────────────────────────────────────
 
@@ -28,6 +28,7 @@ export interface ModuleLog {
 // ─── 路径 ────────────────────────────────────────────────────────────
 
 function getModulePath(projectRoot: string, moduleName: string): string {
+  validateName(moduleName);
   return path.join(getModulesDir(projectRoot), `${moduleName}.md`);
 }
 
@@ -126,38 +127,9 @@ ${newRow}
     }
 
     return { success: true };
-  } catch (e: any) {
-    return { success: false, error: e.message };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, error: msg };
   }
 }
 
-/**
- * 更新模块记录的当前状态
- */
-export function updateModuleState(
-  projectRoot: string,
-  moduleName: string,
-  newState: string
-): { success: boolean; error?: string } {
-  try {
-    const filePath = getModulePath(projectRoot, moduleName);
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: `模块记录不存在: ${moduleName}` };
-    }
-
-    let content = fs.readFileSync(filePath, 'utf-8');
-    const stateMarker = '## 当前状态';
-    const stateIdx = content.indexOf(stateMarker);
-    if (stateIdx !== -1) {
-      const nextSection = content.indexOf('\n## ', stateIdx + 1);
-      const beforeState = content.slice(0, stateIdx + stateMarker.length);
-      const afterState = nextSection !== -1 ? content.slice(nextSection) : '';
-      content = `${beforeState}\n\n- ${newState}\n${afterState}`;
-      fs.writeFileSync(filePath, content, 'utf-8');
-    }
-
-    return { success: true };
-  } catch (e: any) {
-    return { success: false, error: e.message };
-  }
-}

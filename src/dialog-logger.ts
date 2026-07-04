@@ -10,7 +10,7 @@ import * as path from 'node:path';
 
 // ─── Todos ──────────────────────────────────────────────────────────
 
-export function appendTodos(promptsDir: string, todos: string[]): void {
+function appendTodos(promptsDir: string, todos: string[]): void {
   const todosPath = path.join(promptsDir, 'todos.md');
   let content = '';
   if (fs.existsSync(todosPath)) {

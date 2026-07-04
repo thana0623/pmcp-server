@@ -7,7 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPromptsDir } from './config.js';
+import { getPromptsDir, validateName } from './config.js';
 import { parseFrontmatter } from './frontmatter.js';
 
 export interface RuleMeta {
@@ -29,6 +29,7 @@ function getRulesDir(): string {
 }
 
 function getRulePath(name: string): string {
+  validateName(name);
   return path.join(getRulesDir(), `${name}.md`);
 }
 
@@ -64,8 +65,9 @@ export function addRule(
 
     fs.writeFileSync(filePath, fileContent, 'utf-8');
     return { success: true };
-  } catch (e: any) {
-    return { success: false, error: e.message };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, error: msg };
   }
 }
 
@@ -80,8 +82,9 @@ export function removeRule(name: string): { success: boolean; error?: string } {
     }
     fs.unlinkSync(filePath);
     return { success: true };
-  } catch (e: any) {
-    return { success: false, error: e.message };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, error: msg };
   }
 }
 
@@ -98,31 +101,6 @@ export function listRules(): Rule[] {
     const raw = fs.readFileSync(filePath, 'utf-8');
     return parseRuleFile(raw, filePath);
   }).filter(Boolean) as Rule[];
-}
-
-/**
- * 读取单条规则
- */
-export function readRule(name: string): Rule | null {
-  const filePath = getRulePath(name);
-  if (!fs.existsSync(filePath)) return null;
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  return parseRuleFile(raw, filePath);
-}
-
-/**
- * 读取所有规则内容（合并为一个字符串，用于 bootstrap）
- */
-export function loadAllRules(): string {
-  const rules = listRules();
-  if (rules.length === 0) return '';
-
-  const sections = rules.map(r => {
-    const cat = r.meta.category ? ` [${r.meta.category}]` : '';
-    return `### ${r.meta.name}${cat}\n\n${r.content}`;
-  });
-
-  return sections.join('\n\n---\n\n');
 }
 
 // ─── 内部工具 ────────────────────────────────────────────────────────

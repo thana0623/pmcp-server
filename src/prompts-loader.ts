@@ -7,10 +7,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getProjectRoot, getPromptsDir } from './config.js';
+import { getPromptsDir } from './config.js';
 import { formatSkillList } from './skills-manager.js';
-
-export { getProjectRoot, getPromptsDir };
 
 // ─── 文件读取 ────────────────────────────────────────────────────────
 
@@ -37,7 +35,7 @@ export interface BootstrapResult {
 
 // ─── Prompt Loaders ──────────────────────────────────────────────────
 
-export function loadContext(): LoadedContext {
+function loadContext(): LoadedContext {
   const filePath = path.join(getPromptsDir(), 'context.md');
   return { content: readFileSafe(filePath), path: filePath };
 }

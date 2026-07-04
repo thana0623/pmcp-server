@@ -11,13 +11,19 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
-import { getProjectRoot } from './config.js';
+import { execFileSync } from 'node:child_process';
 import { scanSecrets } from './secret-scanner.js';
 
 // ─── 数据类型 ────────────────────────────────────────────────────────
 
 export type BumpType = 'patch' | 'minor' | 'major';
+
+export interface PackageJson {
+  name?: string;
+  version?: string;
+  description?: string;
+  [key: string]: unknown;
+}
 
 export interface PublishOptions {
   /** npm Access Token */
@@ -53,12 +59,12 @@ export interface StepResult {
 
 // ─── 版本管理 ────────────────────────────────────────────────────────
 
-function readPackageJson(projectRoot: string): any {
+function readPackageJson(projectRoot: string): PackageJson {
   const pkgPath = path.join(projectRoot, 'package.json');
-  return JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+  return JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as PackageJson;
 }
 
-function writePackageJson(projectRoot: string, pkg: any): void {
+function writePackageJson(projectRoot: string, pkg: PackageJson): void {
   const pkgPath = path.join(projectRoot, 'package.json');
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
 }
@@ -91,12 +97,13 @@ function updateReadmeVersion(projectRoot: string, oldVersion: string, newVersion
 
 // ─── 命令执行 ────────────────────────────────────────────────────────
 
-function run(command: string, cwd: string): { success: boolean; output: string } {
+function run(bin: string, args: string[], cwd: string): { success: boolean; output: string } {
   try {
-    const output = execSync(command, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const output = execFileSync(bin, args, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
     return { success: true, output: output.trim() };
-  } catch (error: any) {
-    return { success: false, output: error.stderr || error.message || '' };
+  } catch (error: unknown) {
+    const err = error as { stderr?: string; message?: string };
+    return { success: false, output: err.stderr || err.message || '' };
   }
 }
 
@@ -127,7 +134,7 @@ export function publish(projectRoot: string, options: PublishOptions = {}): Publ
 
   // Step 2: 版本号 bump
   const pkg = readPackageJson(root);
-  const oldVersion = pkg.version;
+  const oldVersion = pkg.version || '0.0.0';
   let newVersion: string;
 
   if (options.version) {
@@ -151,10 +158,10 @@ export function publish(projectRoot: string, options: PublishOptions = {}): Publ
 
   // Step 4: npm publish
   if (!options.skipNpm) {
-    const npmCmd = options.npmToken
-      ? `npm publish --//registry.npmjs.org/:_authToken=${options.npmToken}`
-      : 'npm publish';
-    const npmResult = run(npmCmd, root);
+    const npmArgs = options.npmToken
+      ? ['publish', `--//registry.npmjs.org/:_authToken=${options.npmToken}`]
+      : ['publish'];
+    const npmResult = run('npm', npmArgs, root);
     steps.push({
       name: 'npm publish',
       success: npmResult.success,
@@ -169,8 +176,8 @@ export function publish(projectRoot: string, options: PublishOptions = {}): Publ
   // Step 5: git commit + push
   if (!options.skipGit) {
     const commitMsg = options.message || `chore: bump version to ${newVersion}`;
-    run('git add -A', root);
-    const commitResult = run(`git commit -m "${commitMsg}"`, root);
+    run('git', ['add', '-A'], root);
+    const commitResult = run('git', ['commit', '-m', commitMsg], root);
     steps.push({
       name: 'git commit',
       success: commitResult.success,
@@ -179,7 +186,7 @@ export function publish(projectRoot: string, options: PublishOptions = {}): Publ
     });
 
     if (commitResult.success) {
-      const pushResult = run('git push origin HEAD:master', root);
+      const pushResult = run('git', ['push', 'origin', 'HEAD:master'], root);
       steps.push({
         name: 'git push',
         success: pushResult.success,
@@ -191,7 +198,7 @@ export function publish(projectRoot: string, options: PublishOptions = {}): Publ
 
   // Step 6: npm link
   if (!options.skipLink) {
-    const linkResult = run('npm link', root);
+    const linkResult = run('npm', ['link'], root);
     steps.push({
       name: 'npm link',
       success: linkResult.success,
