@@ -7,7 +7,6 @@
  *   - auto_start         - 会话自动启动，加载全部上下文 + 规则 + Skills
  *   - init_prompts       - 扫描项目，自动生成原始 prompts 体系
  *   - bootstrap          - 一键启动，自动读取传递链 + 模块记录
- *   - confirm_direction  - 方向确认（AI 追问后保存目标/约束/验收到 direction.md）
  *   - log_dialog         - 记录对话日志（todos.md + 自动 git commit）
  *   - log_module         - 记录模块修改（目录式）
  *   - read_module        - 修改前读取模块记录
@@ -36,8 +35,6 @@ import { bootstrap, formatBootstrap } from './prompts-loader.js';
 import { config, getProjectRoot, getPromptsDir } from './config.js';
 import { initPrompts } from './prompts-generator.js';
 import { readModuleLog, appendModuleLog } from './module-logger.js';
-import { confirmDirection } from './requirements-check.js';
-import { addRule, removeRule, listRules } from './rules-manager.js';
 import {
   listSkills,
   selectSkill,
@@ -53,8 +50,6 @@ import {
   recommendTools,
   listScenes,
   detectScene,
-  generateOnboarding,
-  generateAllOnboarding,
 } from './tool-scanner.js';
 import { scanSecrets } from './secret-scanner.js';
 import { publish, formatPublishResult } from './publisher.js';
@@ -103,8 +98,6 @@ class PromptsMcpServer {
             return this.handleInitPrompts(args);
           case 'bootstrap':
             return this.handleBootstrap();
-          case 'confirm_direction':
-            return this.handleConfirmDirection(args);
           case 'log_dialog':
             return this.handleLogDialog(args);
           case 'log_module':
@@ -115,12 +108,6 @@ class PromptsMcpServer {
             return this.handleUpdateTodos(args);
           case 'auto_start':
             return this.handleAutoStart();
-          case 'add_rule':
-            return this.handleAddRule(args);
-          case 'list_rules':
-            return this.handleListRules();
-          case 'remove_rule':
-            return this.handleRemoveRule(args);
           case 'commit_dialog':
             return this.handleCommitDialog(args);
           case 'list_skills':
@@ -137,10 +124,6 @@ class PromptsMcpServer {
             return this.handleRecommendTools(args);
           case 'list_scenes':
             return this.handleListScenes();
-          case 'onboard_tool':
-            return this.handleOnboardTool(args);
-          case 'onboard_all':
-            return this.handleOnboardAll(args);
           case 'audit_secrets':
             return this.handleAuditSecrets(args);
           case 'safe_publish':
@@ -219,37 +202,6 @@ class PromptsMcpServer {
 
     return {
       content: [{ type: 'text', text: formatted }],
-    };
-  }
-
-  /**
-   * confirm_direction: 方向确认
-   */
-  private async handleConfirmDirection(args: any) {
-    const goal = typeof args?.goal === 'string' ? args.goal : '';
-    const constraints: string[] = Array.isArray(args?.constraints) ? args.constraints : [];
-    const acceptance = typeof args?.acceptance === 'string' ? args.acceptance : undefined;
-    const context = typeof args?.context === 'string' ? args.context : undefined;
-
-    const result = confirmDirection({ goal, constraints, acceptance, context });
-
-    if (!result.success) {
-      return {
-        content: [{ type: 'text', text: `❌ 方向确认失败: ${result.error}` }],
-        isError: true,
-      };
-    }
-
-    const lines: string[] = [
-      '✅ 方向已确认',
-      '',
-      result.content || '',
-      '',
-      `已保存到: ${result.filePath}`,
-    ];
-
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
     };
   }
 
@@ -458,90 +410,6 @@ class PromptsMcpServer {
     return {
       content: [{ type: 'text', text: lines.join('\n') }],
     };
-  }
-
-  /**
-   * add_rule: 添加项目规范规则
-   */
-  private async handleAddRule(args: any) {
-    const name = typeof args?.name === 'string' ? args.name : '';
-    const content = typeof args?.content === 'string' ? args.content : '';
-    const category = typeof args?.category === 'string' ? args.category : 'general';
-
-    if (!name || !content) {
-      return {
-        content: [{ type: 'text', text: '❌ "name" 和 "content" 是必填参数。' }],
-        isError: true,
-      };
-    }
-
-    const result = addRule(name, content, category);
-    if (result.success) {
-      return {
-        content: [
-          { type: 'text', text: `✅ 规则已添加: ${name}\n\n分类: ${category}\n内容:\n${content}` },
-        ],
-      };
-    } else {
-      return {
-        content: [{ type: 'text', text: `❌ 添加规则失败: ${result.error}` }],
-        isError: true,
-      };
-    }
-  }
-
-  /**
-   * list_rules: 列出所有规则
-   */
-  private async handleListRules() {
-    const rules = listRules();
-
-    if (rules.length === 0) {
-      return {
-        content: [{ type: 'text', text: '📋 暂无自定义规则。\n\n使用 `add_rule` 工具添加规则。' }],
-      };
-    }
-
-    const lines: string[] = [];
-    lines.push('📋 项目自定义规则列表');
-    lines.push('');
-    lines.push('| 名称 | 分类 | 创建日期 |');
-    lines.push('|------|------|----------|');
-    for (const rule of rules) {
-      lines.push(`| ${rule.meta.name} | ${rule.meta.category} | ${rule.meta.created} |`);
-    }
-    lines.push('');
-    lines.push(`共 ${rules.length} 条规则`);
-
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-    };
-  }
-
-  /**
-   * remove_rule: 删除规则
-   */
-  private async handleRemoveRule(args: any) {
-    const name = typeof args?.name === 'string' ? args.name : '';
-
-    if (!name) {
-      return {
-        content: [{ type: 'text', text: '❌ "name" 是必填参数。' }],
-        isError: true,
-      };
-    }
-
-    const result = removeRule(name);
-    if (result.success) {
-      return {
-        content: [{ type: 'text', text: `✅ 规则已删除: ${name}` }],
-      };
-    } else {
-      return {
-        content: [{ type: 'text', text: `❌ 删除规则失败: ${result.error}` }],
-        isError: true,
-      };
-    }
   }
 
   /**
@@ -794,28 +662,6 @@ class PromptsMcpServer {
    */
   private async handleListScenes() {
     const result = listScenes();
-    return {
-      content: [{ type: 'text', text: result }],
-    };
-  }
-
-  private async handleOnboardTool(args: any) {
-    const toolName = typeof args?.toolName === 'string' ? args.toolName : '';
-    if (!toolName) {
-      return {
-        content: [{ type: 'text', text: '❌ "toolName" 是必填参数。' }],
-        isError: true,
-      };
-    }
-    const result = generateOnboarding(toolName);
-    return {
-      content: [{ type: 'text', text: result }],
-    };
-  }
-
-  private async handleOnboardAll(args: any) {
-    const projectRoot = typeof args?.projectRoot === 'string' ? args.projectRoot : undefined;
-    const result = generateAllOnboarding(projectRoot);
     return {
       content: [{ type: 'text', text: result }],
     };

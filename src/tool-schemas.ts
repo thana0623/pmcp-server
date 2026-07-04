@@ -40,34 +40,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
-    name: 'confirm_direction',
-    description:
-      '【方向确认】AI 追问澄清后，用户确认方向时调用。保存目标、约束、验收标准到 direction.md。对话式追问由 AI 自然完成，此工具只负责持久化确认结果。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        goal: {
-          type: 'string',
-          description: '一句话目标描述',
-        },
-        constraints: {
-          type: 'array',
-          items: { type: 'string' },
-          description: '关键约束列表（可选）',
-        },
-        acceptance: {
-          type: 'string',
-          description: '验收标准，一句话说明怎么算完成（可选）',
-        },
-        context: {
-          type: 'string',
-          description: '补充说明（可选）',
-        },
-      },
-      required: ['goal'],
-    },
-  },
-  {
     name: 'log_dialog',
     description: '【记录日志】记录对话日志，追加待办到 todos.md。',
     inputSchema: {
@@ -169,51 +141,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {},
-    },
-  },
-  {
-    name: 'add_rule',
-    description:
-      '【添加规则】添加一条项目规范规则。规则会持久化存储，在每次会话启动时自动加载。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        name: {
-          type: 'string',
-          description: '规则名称（如 commit-style、naming-convention）',
-        },
-        content: {
-          type: 'string',
-          description: '规则内容',
-        },
-        category: {
-          type: 'string',
-          description: '分类（如 frontend / backend / general / testing）',
-        },
-      },
-      required: ['name', 'content'],
-    },
-  },
-  {
-    name: 'list_rules',
-    description: '【列出规则】列出所有已添加的项目规范规则。',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'remove_rule',
-    description: '【删除规则】删除一条项目规范规则。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        name: {
-          type: 'string',
-          description: '要删除的规则名称',
-        },
-      },
-      required: ['name'],
     },
   },
   {
@@ -356,34 +283,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {},
-    },
-  },
-  {
-    name: 'onboard_tool',
-    description:
-      '【工具引导】为指定工具生成 3 步快速上手引导（是什么 → 用一次 → 验证效果）。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        toolName: {
-          type: 'string',
-          description: '工具名称（如 codegraph、eslint、vitest）',
-        },
-      },
-      required: ['toolName'],
-    },
-  },
-  {
-    name: 'onboard_all',
-    description: '【全部引导】为所有已安装工具生成引导手册概览。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        projectRoot: {
-          type: 'string',
-          description: '项目根目录（可选）',
-        },
-      },
     },
   },
   {

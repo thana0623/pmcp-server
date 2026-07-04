@@ -28,7 +28,6 @@ import {
 } from './config.js';
 import { initPrompts } from './prompts-generator.js';
 import { readModuleLog, listModuleLogs, appendModuleLog } from './module-logger.js';
-import { confirmDirection } from './requirements-check.js';
 import { listSkills, initGlobalSkills, isGlobalSkillsInitialized } from './skills-manager.js';
 import { logDialog } from './dialog-logger.js';
 import * as fs from 'node:fs';
@@ -228,7 +227,6 @@ Commands:
   bootstrap                       加载上下文（已初始化项目使用）
   refresh-context                 刷新 context.md 技术栈（保留用户编辑）
   end                             结束本轮开发：敏感审查 + 归档任务
-  confirm --goal <text>            方向确认（AI 追问后保存到 direction.md）
   log --title <t> --request <r>   记录对话日志（追加到 todos.md）
   module-log <name> --change <c>  记录模块修改
   module-read <name>              读取模块记录
@@ -738,50 +736,6 @@ async function main(): Promise<void> {
       printSeparator('一键启动');
       const result = bootstrap();
       console.log(formatBootstrap(result));
-      break;
-    }
-
-    case 'confirm': {
-      const goalIndex = args.indexOf('--goal');
-      const acceptanceIndex = args.indexOf('--acceptance');
-      const contextIndex = args.indexOf('--context');
-
-      const goal =
-        goalIndex !== -1
-          ? args[goalIndex + 1]
-          : args[1] && !args[1].startsWith('--')
-            ? args[1]
-            : '';
-      const acceptance = acceptanceIndex !== -1 ? args[acceptanceIndex + 1] : undefined;
-      const context = contextIndex !== -1 ? args[contextIndex + 1] : undefined;
-
-      // 收集 --constraint 参数（可多个）
-      const constraints: string[] = [];
-      for (let i = 1; i < args.length; i++) {
-        if (args[i] === '--constraint' && args[i + 1]) {
-          constraints.push(args[i + 1]);
-        }
-      }
-
-      if (!goal) {
-        console.error('❌ 请提供目标描述。');
-        console.error(
-          '用法: pmcp confirm --goal "目标" [--constraint "约束"] [--acceptance "验收"]',
-        );
-        process.exit(1);
-      }
-
-      printSeparator('方向确认');
-      const result = confirmDirection({ goal, constraints, acceptance, context });
-
-      if (result.success) {
-        console.log('✅ 方向已确认\n');
-        console.log(result.content);
-        console.log(`\n已保存到: ${result.filePath}`);
-      } else {
-        console.error(`❌ 确认失败: ${result.error}`);
-        process.exit(1);
-      }
       break;
     }
 
