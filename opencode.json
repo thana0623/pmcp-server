@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "pmcp": {
+      "type": "local",
+      "command": ["node", "build/index.js"],
+      "environment": {
+        "PROJECT_ROOT": "."
+      },
+      "enabled": true
+    }
+  }
+}
